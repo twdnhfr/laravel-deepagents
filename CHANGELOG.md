@@ -2,7 +2,7 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
-## Unreleased
+## v0.1.0 - 2026-05-29
 
 First development release — the runtime core plus the Tier 1 / Tier 2 feature set.
 See [`docs/adr/`](docs/adr/) for the load-bearing architecture decisions and
