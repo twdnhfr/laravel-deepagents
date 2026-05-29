@@ -36,6 +36,20 @@ them before changing the loop, the `maxSteps: 0` seam, or anything around tool
 execution and human-in-the-loop. The feature roadmap and what is intentionally
 out of scope live in [`docs/adoption.md`](docs/adoption.md) and [`TODO.md`](TODO.md).
 
+## Releasing
+
+The changelog is **release-driven** — don't hand-edit `CHANGELOG.md`. To cut a
+release:
+
+1. Tag the commit (`vX.Y.Z`) and publish a **GitHub Release** for that tag.
+2. Write the release body in changelog style (e.g. `### Added` / `### Fixed`
+   sections) — this body *is* the changelog entry.
+
+On publish, the [`Update Changelog`](.github/workflows/update-changelog.yml)
+workflow inserts the release body under a `vX.Y.Z` heading in `CHANGELOG.md` and
+commits it to `main`. Publishing the release also triggers the Packagist
+auto-update webhook, so the new version appears on Packagist automatically.
+
 ## Reporting bugs
 
 Open an issue with a minimal reproduction (a failing test is ideal). For security
