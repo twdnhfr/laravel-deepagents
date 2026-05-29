@@ -231,6 +231,14 @@ php examples/demo.php
 It walks through autonomous tool use, planning, human-in-the-loop approval,
 context summarization and sub-agents. See [`examples/`](examples/).
 
+### Example app: `deepagents-chat`
+
+[**twdnhfr/deepagents-chat**](https://github.com/twdnhfr/deepagents-chat) is a
+small Laravel chat app built on this package — a live, end-to-end example. It
+shows the owned loop in a real request cycle: a tool-call trace, the
+human-in-the-loop approval flow, multi-turn conversations, a `DatabaseBackend`
+with tool-output offloading, and Markdown-rendered replies.
+
 ## Testing
 
 ```bash
