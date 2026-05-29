@@ -52,7 +52,7 @@ The how-and-why is recorded as Architecture Decision Records in [`docs/adr/`](do
 ## Requirements
 
 - PHP 8.3+
-- Laravel 12 or 13
+- Laravel 13
 - [`laravel/ai`](https://github.com/laravel/ai) `^0.7` (configured with at least one provider/API key)
 
 ## Installation

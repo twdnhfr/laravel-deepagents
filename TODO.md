@@ -96,7 +96,7 @@ What we reuse instead of rebuilding:
 - [x] Record core architecture decisions as ADRs → [`docs/adr/`](docs/adr/) (Path B loop, `maxSteps:0` seam, `^0.7`).
 - [ ] Define core contracts: `Backend`, `HarnessProfile`, `Skill`, `Memory`, `Tool` (or alias the SDK's).
 - [ ] Config file (`config/deepagents.php`): default model, backend, limits, profiles, feature flags.
-- [ ] CI green on PHP 8.3/8.4 × Laravel 11/12/13 (matrix), PHPStan, Pint.
+- [ ] CI green on PHP 8.3/8.4 × Laravel 13 (matrix), PHPStan, Pint.
 
 ### M1 — Core agent + built-in tools
 - [x] `DeepAgent` fluent builder (`make()`) → `src/DeepAgent.php`. Configures provider/model/instructions/tools/

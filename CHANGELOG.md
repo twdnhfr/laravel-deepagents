@@ -39,6 +39,10 @@ See [`docs/adr/`](docs/adr/) for the load-bearing architecture decisions and
 
 ### Notes
 
-- Requires `laravel/ai` `^0.7.2` (Laravel 12/13, PHP 8.3+).
+- Requires `laravel/ai` `^0.7.2` (Laravel 13, PHP 8.3+). Laravel 12 is not
+  supported: `laravel/ai`'s `Tool::schema()` type-hints
+  `Illuminate\Contracts\JsonSchema\JsonSchema`, a contract that only ships in
+  Laravel 13 — on Laravel 12 the gateway passes a `JsonSchemaTypeFactory` that
+  does not implement it, raising a `TypeError`.
 - Filesystem & shell *tools* are intentionally deferred; token streaming through
   the loop is omitted by design (see [ADR-0004](docs/adr/0004-no-token-streaming-through-the-loop.md)).
