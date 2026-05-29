@@ -12,7 +12,7 @@ management, built on top of `laravel/ai`.
 > **Early work in progress.** The runtime and core harness are built and tested — owned agent loop, human-in-the-loop,
 > multi-turn, planning, sub-agents, memory and context management (summarization + tool-output offloading) over
 > pluggable backends. Skills are planned; filesystem/shell tools and token streaming are out of scope for now (see
-> [`TODO.md`](TODO.md) and [`docs/adr/`](docs/adr/)). APIs may change; not yet on Packagist.
+> [`TODO.md`](TODO.md) and [`docs/adr/`](docs/adr/)). APIs may still change before 1.0.
 
 > [!NOTE]
 > Not affiliated with or endorsed by LangChain. An independent reimplementation for Laravel, inspired by the
@@ -56,8 +56,6 @@ The how-and-why is recorded as Architecture Decision Records in [`docs/adr/`](do
 - [`laravel/ai`](https://github.com/laravel/ai) `^0.7` (configured with at least one provider/API key)
 
 ## Installation
-
-> Not published to Packagist yet. Once it is:
 
 ```bash
 composer require twdnhfr/laravel-deepagents
