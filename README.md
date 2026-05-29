@@ -2,7 +2,7 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/twdnhfr/laravel-deepagents.svg?style=flat-square)](https://packagist.org/packages/twdnhfr/laravel-deepagents)
 [![Tests](https://img.shields.io/github/actions/workflow/status/twdnhfr/laravel-deepagents/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/twdnhfr/laravel-deepagents/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![License](https://img.shields.io/packagist/l/twdnhfr/laravel-deepagents.svg?style=flat-square)](LICENSE.md)
+[![License](https://img.shields.io/github/license/twdnhfr/laravel-deepagents?style=flat-square)](LICENSE.md)
 
 A **deep-agent harness** for the [Laravel AI SDK](https://github.com/laravel/ai) — an owned, resumable agent loop
 with planning, sub-agents, human-in-the-loop approval, multi-turn conversations, memory and automatic context
