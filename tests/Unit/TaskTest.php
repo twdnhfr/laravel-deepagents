@@ -5,9 +5,22 @@ use Laravel\Ai\Contracts\Gateway\TextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Tools\Request;
+use Twdnhfr\LaravelDeepagents\Backends\StateBackend;
 use Twdnhfr\LaravelDeepagents\DeepAgent;
 use Twdnhfr\LaravelDeepagents\Tests\Fixtures\Sdk;
 use Twdnhfr\LaravelDeepagents\Tools\Task;
+
+/** A sub-agent that writes an artifact during its turn, then finishes. */
+function subAgentWritingArtifact(string $path, string $content): DeepAgent
+{
+    return DeepAgent::make()
+        ->provider(Sdk::provider([
+            Sdk::turn('', [Sdk::toolCall('write_artifact', ['path' => $path, 'content' => $content])], FinishReason::ToolCalls),
+            Sdk::turn('done', [], FinishReason::Stop),
+        ]))
+        ->model('m')
+        ->withArtifacts();
+}
 
 afterEach(fn () => Mockery::close());
 
@@ -85,4 +98,31 @@ it('wires a task tool when sub-agents are registered and completes a delegated r
         ->all();
 
     expect($toolResults[0]['result'])->toBe('sub did the work');
+});
+
+it('shares the parent backend with a sub-agent that has none', function () {
+    $backend = new StateBackend;
+
+    $task = new Task(['writer' => ['description' => 'writes', 'agent' => subAgentWritingArtifact('notes.md', 'from sub')]]);
+    $task->withBackend($backend);
+
+    $task->handle(new Request(['subagent_type' => 'writer', 'description' => 'write notes']));
+
+    // The sub-agent wrote into the parent's backend instance.
+    expect($backend->read('notes.md'))->toBe('from sub');
+});
+
+it('does not override a sub-agent that has its own backend', function () {
+    $parentBackend = new StateBackend;
+    $ownBackend = new StateBackend;
+
+    $sub = subAgentWritingArtifact('notes.md', 'own')->backend($ownBackend);
+
+    $task = new Task(['writer' => ['description' => 'writes', 'agent' => $sub]]);
+    $task->withBackend($parentBackend);
+
+    $task->handle(new Request(['subagent_type' => 'writer', 'description' => 'write notes']));
+
+    expect($ownBackend->read('notes.md'))->toBe('own');
+    expect($parentBackend->exists('notes.md'))->toBeFalse();
 });

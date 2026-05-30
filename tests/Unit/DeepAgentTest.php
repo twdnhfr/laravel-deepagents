@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Http;
 use Laravel\Ai\Contracts\Gateway\TextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Responses\Data\FinishReason;
@@ -82,6 +83,60 @@ it('suspends for approval then resumes to completion', function () {
     expect($spy->handled)->toBeTrue();
     expect($finished->isDone())->toBeTrue();
     expect($finished->finalText)->toBe('all set');
+});
+
+it('halts a no-progress run when guardAgainstLoops is enabled', function () {
+    $provider = Sdk::provider([
+        // The model keeps proposing the same call forever.
+        Sdk::turn('', [Sdk::toolCall('spy_tool', ['query' => 'go'])], FinishReason::ToolCalls),
+    ]);
+
+    $state = DeepAgent::make()
+        ->provider($provider)
+        ->model('m')
+        ->tool(new SpyTool)
+        ->guardAgainstLoops(repeats: 2)
+        ->run('do the thing');
+
+    expect($state->isHalted())->toBeTrue();
+    expect($state->haltReason)->toContain('No progress');
+});
+
+it('wires validateToolArgs through the builder', function () {
+    $spy = new SpyTool;
+    $provider = Sdk::provider([
+        Sdk::turn('', [Sdk::toolCall('spy_tool', ['bogus' => 1])], FinishReason::ToolCalls),
+        Sdk::turn('done', [], FinishReason::Stop),
+    ]);
+
+    $state = DeepAgent::make()
+        ->provider($provider)
+        ->model('m')
+        ->tool($spy)
+        ->validateToolArgs()
+        ->run('go');
+
+    expect($spy->handled)->toBeFalse(); // blocked by validation, never executed
+    expect($state->isDone())->toBeTrue();
+});
+
+it('resolves and runs a provider() failover chain (primary succeeds)', function () {
+    Http::preventStrayRequests();
+    Http::fake(['https://api.anthropic.com/*' => Http::response([
+        'id' => 'msg', 'model' => 'claude-test', 'type' => 'message', 'role' => 'assistant',
+        'stop_reason' => 'end_turn',
+        'content' => [['type' => 'text', 'text' => 'hello from anthropic']],
+        'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+    ])]);
+
+    // openai is the fallback; the primary succeeds, so it is never called
+    // (preventStrayRequests would fail the test otherwise).
+    $state = DeepAgent::make()
+        ->provider(['anthropic' => 'claude-test', 'openai' => 'gpt-test'])
+        ->run('hi');
+
+    expect($state->isDone())->toBeTrue();
+    expect($state->finalText)->toBe('hello from anthropic');
 });
 
 it('falls back to the provider default model when none is set', function () {

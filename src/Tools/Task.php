@@ -7,6 +7,7 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 use Throwable;
+use Twdnhfr\LaravelDeepagents\Contracts\Backend;
 use Twdnhfr\LaravelDeepagents\DeepAgent;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
 
@@ -22,12 +23,19 @@ use Twdnhfr\LaravelDeepagents\Runtime\RunState;
  * gate the *delegation* on the parent instead. A sub-agent failure is returned
  * as text, never thrown, so it cannot crash the parent run.
  */
-class Task implements Tool
+class Task implements BackendAware, Tool
 {
+    protected ?Backend $backend = null;
+
     /**
      * @param  array<string, array{description: string, agent: DeepAgent}>  $subAgents
      */
     public function __construct(protected array $subAgents) {}
+
+    public function withBackend(Backend $backend): void
+    {
+        $this->backend = $backend;
+    }
 
     public function name(): string
     {
@@ -55,8 +63,17 @@ class Task implements Tool
             return "No sub-agent named [{$name}] is available.";
         }
 
+        $agent = $this->subAgents[$name]['agent'];
+
+        // Share the parent's storage backend so the sub-agent reads and writes
+        // the same artifacts/memory store — the equivalent of deepagents'
+        // shared virtual filesystem. A sub-agent with its own backend keeps it.
+        if ($this->backend !== null) {
+            $agent->inheritBackend($this->backend);
+        }
+
         try {
-            $state = $this->subAgents[$name]['agent']->run((string) ($request['description'] ?? ''));
+            $state = $agent->run((string) ($request['description'] ?? ''));
 
             return $state->finalText ?? '(the sub-agent returned no output)';
         } catch (Throwable $e) {

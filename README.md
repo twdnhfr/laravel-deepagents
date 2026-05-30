@@ -176,6 +176,36 @@ $state = $agent->continue(RunState::fromJson($stored), 'And in Tokyo?');
 echo $state->finalText; // resolves "And in Tokyo?" using the prior turn
 ```
 
+### Sub-agents: delegate to an isolated context
+
+Register a sub-agent and the parent gets a `task` tool to delegate self-contained
+work to it. The sub-agent runs as its own `DeepAgent` to completion and hands
+back only its final text:
+
+```php
+$researcher = DeepAgent::make()
+    ->provider('anthropic')
+    ->instructions('You research a topic and return a concise summary.');
+
+$state = DeepAgent::make()
+    ->provider('anthropic')
+    ->subAgent('researcher', 'Researches a topic in depth.', $researcher)
+    ->run('Delegate research on vector databases, then summarize the findings.');
+```
+
+> [!IMPORTANT]
+> **"Isolated" means the *context*, not the *workspace*.** A sub-agent gets a
+> fresh conversation — it never sees the parent's message history or todos, and
+> only its final text returns to the parent. But it **shares the parent's
+> storage backend** (artifacts/memory) by default, mirroring deepagents' shared
+> virtual filesystem. So:
+> - Artifacts a sub-agent writes are readable by the parent and its siblings —
+>   they all hit the same store. Two agents writing the same path **overwrite**
+>   each other; there is no per-sub-agent sandbox.
+> - To give a sub-agent its own private store, set `->backend(...)` on it
+>   explicitly — an explicit backend is always kept, never replaced by the
+>   parent's.
+
 ## How it works
 
 ```

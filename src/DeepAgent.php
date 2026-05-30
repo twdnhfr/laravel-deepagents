@@ -14,6 +14,13 @@ use Twdnhfr\LaravelDeepagents\Context\SummarizeHistory;
 use Twdnhfr\LaravelDeepagents\Contracts\Backend;
 use Twdnhfr\LaravelDeepagents\Runtime\Hook;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
+use Twdnhfr\LaravelDeepagents\Runtime\LoopGuard;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\FailoverProviders;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\RetryModelCall;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\RetryTool;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ToolMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ValidateToolArgs;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
 use Twdnhfr\LaravelDeepagents\Tools\ReadArtifact;
 use Twdnhfr\LaravelDeepagents\Tools\Task;
@@ -73,6 +80,15 @@ final class DeepAgent
     /** @var array<int, Hook> */
     protected array $hooks = [];
 
+    /** @var array<int, ModelMiddleware> */
+    protected array $modelMiddleware = [];
+
+    /** @var array<int, ToolMiddleware> */
+    protected array $toolMiddleware = [];
+
+    /** @var array<string, ?string> Ordered failover chain: provider name => model (null = provider default). */
+    protected array $failover = [];
+
     /** @var array{trigger: int, keep: int}|null */
     protected ?array $summarize = null;
 
@@ -96,11 +112,24 @@ final class DeepAgent
     }
 
     /**
-     * Set the provider by name (resolved from config) or as a ready instance.
+     * Set the provider — or an ordered failover chain.
+     *
+     * - `provider('anthropic')` / `provider($instance)` — a single provider
+     *   (set the model with `model()`).
+     * - `provider(['anthropic' => 'claude-sonnet-4-5', 'openai' => null])` — try
+     *   each in turn, failing over on a failoverable error (rate limit, overload).
+     *   The first entry is the primary; models are given inline (null = the
+     *   provider's default). Mirrors `laravel/ai`'s failover provider list.
+     *
+     * @param  string|TextProvider|array<string, ?string>  $provider
      */
-    public function provider(string|TextProvider $provider): static
+    public function provider(string|TextProvider|array $provider): static
     {
-        $this->provider = $provider;
+        if (is_array($provider)) {
+            $this->failover = $provider;
+        } else {
+            $this->provider = $provider;
+        }
 
         return $this;
     }
@@ -213,6 +242,19 @@ final class DeepAgent
     }
 
     /**
+     * Adopt a backend as a fallback, used only when this agent has no backend
+     * of its own. A parent agent calls this on its sub-agents (via the `task`
+     * tool) so they share its artifact/memory store — mirroring deepagents'
+     * shared virtual filesystem — without overriding an explicit `backend()`.
+     */
+    public function inheritBackend(Backend $backend): static
+    {
+        $this->backend ??= $backend;
+
+        return $this;
+    }
+
+    /**
      * Load `AGENTS.md`-style memory files (read from the backend) into the
      * system prompt at the start of each run. Always-on context, à la deepagents.
      */
@@ -231,6 +273,71 @@ final class DeepAgent
         $this->hooks[] = $hook;
 
         return $this;
+    }
+
+    /**
+     * Add model-call middleware — wraps each turn's `generateText` call. The seam
+     * for retry, provider failover, logging, or a circuit breaker. Composes
+     * onion-style: the first added is the outermost. See [ADR-0005](../docs/adr/0005-resilience-at-the-loop-seam.md).
+     */
+    public function modelMiddleware(ModelMiddleware ...$middleware): static
+    {
+        array_push($this->modelMiddleware, ...$middleware);
+
+        return $this;
+    }
+
+    /**
+     * Add tool middleware — wraps each tool invocation. The seam for tool retry,
+     * argument validation, or timeouts.
+     */
+    public function toolMiddleware(ToolMiddleware ...$middleware): static
+    {
+        array_push($this->toolMiddleware, ...$middleware);
+
+        return $this;
+    }
+
+    /**
+     * Halt the run when it makes no progress: the same tool call repeated
+     * `repeats` turns in a row stops it (status `halted`, with a reason) instead
+     * of churning up to `maxTurns`. The halted {@see RunState} stays serializable.
+     */
+    public function guardAgainstLoops(int $repeats = 3): static
+    {
+        return $this->hook(new LoopGuard($repeats));
+    }
+
+    /**
+     * Retry the model call on a transient, non-failoverable error (a dropped
+     * connection or timeout). Rate limits route to provider failover instead
+     * (configure one by passing an array to `provider()`).
+     *
+     * @param  (Closure(\Throwable): bool)|null  $retryable
+     */
+    public function retryModelCall(int $times = 2, ?Closure $retryable = null): static
+    {
+        return $this->modelMiddleware(new RetryModelCall($times, $retryable));
+    }
+
+    /**
+     * Validate tool arguments against each tool's own schema before it runs,
+     * returning a corrective message to the model on a mismatch instead of
+     * calling the tool with bad input.
+     */
+    public function validateToolArgs(): static
+    {
+        return $this->toolMiddleware(new ValidateToolArgs);
+    }
+
+    /**
+     * Retry a tool invocation on a transient error.
+     *
+     * @param  (Closure(\Throwable): bool)|null  $retryable
+     */
+    public function retryTools(int $times = 3, ?Closure $retryable = null): static
+    {
+        return $this->toolMiddleware(new RetryTool($times, $retryable));
     }
 
     /**
@@ -344,9 +451,26 @@ final class DeepAgent
 
     protected function loop(): Loop
     {
-        $provider = $this->resolveProvider();
-        $model = $this->model ?? $provider->defaultTextModel();
+        $chain = $this->resolveFailoverChain();
+
+        // With a failover chain, the first entry is the primary; otherwise fall
+        // back to the single provider()/model() configuration.
+        if ($chain !== []) {
+            $provider = $chain[0]['provider'];
+            $model = $chain[0]['model'];
+        } else {
+            $provider = $this->resolveProvider();
+            $model = $this->model ?? $provider->defaultTextModel();
+        }
+
         $backend = $this->resolveBackend();
+
+        $modelMiddleware = $this->modelMiddleware;
+
+        if ($chain !== []) {
+            // Outermost: try the whole chain, with any retry/host middleware nested inside.
+            array_unshift($modelMiddleware, new FailoverProviders($chain));
+        }
 
         $hooks = $this->hooks;
 
@@ -380,7 +504,7 @@ final class DeepAgent
             $tools[] = new WriteArtifact;
         }
 
-        return new Loop($provider, $model, $tools, $this->approvalGate, $this->maxTurns, $hooks, $backend);
+        return new Loop($provider, $model, $tools, $this->approvalGate, $this->maxTurns, $hooks, $backend, $modelMiddleware, $this->toolMiddleware);
     }
 
     protected function resolveProvider(): TextProvider
@@ -390,6 +514,23 @@ final class DeepAgent
         }
 
         return app(AiManager::class)->textProvider($this->provider);
+    }
+
+    /**
+     * Resolve the configured failover chain to provider instances + models.
+     *
+     * @return array<int, array{provider: TextProvider, model: string}>
+     */
+    protected function resolveFailoverChain(): array
+    {
+        $chain = [];
+
+        foreach ($this->failover as $name => $model) {
+            $provider = app(AiManager::class)->textProvider($name);
+            $chain[] = ['provider' => $provider, 'model' => $model ?? $provider->defaultTextModel()];
+        }
+
+        return $chain;
     }
 
     /**

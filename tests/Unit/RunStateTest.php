@@ -23,7 +23,22 @@ it('reports each status correctly', function (string $status, string $method) {
     'running' => [RunState::STATUS_RUNNING, 'isRunning'],
     'suspended' => [RunState::STATUS_SUSPENDED, 'isSuspended'],
     'done' => [RunState::STATUS_DONE, 'isDone'],
+    'halted' => [RunState::STATUS_HALTED, 'isHalted'],
 ]);
+
+it('halts with a reason as a terminal state', function () {
+    $state = RunState::start('sys', 'go');
+
+    $state->halt('stuck in a loop');
+
+    expect($state->status)->toBe(RunState::STATUS_HALTED);
+    expect($state->isHalted())->toBeTrue();
+    expect($state->isRunning())->toBeFalse();
+    expect($state->haltReason)->toBe('stuck in a loop');
+
+    // and it round-trips
+    expect(RunState::fromJson($state->toJson()))->toEqual($state);
+});
 
 it('serializes to the expected shape', function () {
     $state = new RunState(
@@ -41,6 +56,7 @@ it('serializes to the expected shape', function () {
         'status' => RunState::STATUS_SUSPENDED,
         'finalText' => null,
         'todos' => [],
+        'haltReason' => null,
     ]);
 });
 

@@ -12,3 +12,4 @@ the old one (which is marked `Superseded by ADR-XXXX`).
 | [0002](0002-maxsteps-zero-single-turn-seam.md) | Use `maxSteps: 0` as the uniform single-turn seam | Accepted |
 | [0003](0003-depend-on-laravel-ai-0.7.md) | Depend on `laravel/ai` `^0.7`, not `^1.0` | Accepted |
 | [0004](0004-no-token-streaming-through-the-loop.md) | No token streaming through the owned loop (for now) | Accepted |
+| [0005](0005-resilience-at-the-loop-seam.md) | Resilience lives at the loop seam, as around-call middleware | Accepted |

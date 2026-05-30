@@ -52,4 +52,47 @@ class Sdk
 
         return $provider;
     }
+
+    /**
+     * A mocked TextProvider whose gateway throws on its first `generateText` call
+     * and then returns the given responses in order — for exercising retry
+     * middleware around the model call.
+     *
+     * @param  array<int, TextResponse>  $thenReturn
+     */
+    public static function providerThrowingThen(\Throwable $throw, TextResponse ...$thenReturn): TextProvider
+    {
+        $calls = 0;
+
+        $gateway = Mockery::mock(TextGateway::class);
+        $gateway->shouldReceive('generateText')->andReturnUsing(function () use (&$calls, $throw, $thenReturn) {
+            if ($calls++ === 0) {
+                throw $throw;
+            }
+
+            return $thenReturn[min($calls - 2, count($thenReturn) - 1)];
+        });
+
+        $provider = Mockery::mock(TextProvider::class);
+        $provider->shouldReceive('textGateway')->andReturn($gateway);
+        $provider->shouldReceive('defaultTextModel')->andReturn('default-model');
+
+        return $provider;
+    }
+
+    /**
+     * A mocked TextProvider whose gateway throws the given exception on every
+     * `generateText` call — for exercising failover and retry middleware.
+     */
+    public static function providerAlwaysThrowing(\Throwable $e, string $defaultModel = 'default-model'): TextProvider
+    {
+        $gateway = Mockery::mock(TextGateway::class);
+        $gateway->shouldReceive('generateText')->andThrow($e);
+
+        $provider = Mockery::mock(TextProvider::class);
+        $provider->shouldReceive('textGateway')->andReturn($gateway);
+        $provider->shouldReceive('defaultTextModel')->andReturn($defaultModel);
+
+        return $provider;
+    }
 }

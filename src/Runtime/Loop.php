@@ -19,6 +19,10 @@ use Laravel\Ai\Tools\Request;
 use Throwable;
 use Twdnhfr\LaravelDeepagents\Backends\StateBackend;
 use Twdnhfr\LaravelDeepagents\Contracts\Backend;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelCall;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ToolInvocation;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ToolMiddleware;
 use Twdnhfr\LaravelDeepagents\Tools\BackendAware;
 use Twdnhfr\LaravelDeepagents\Tools\RunAware;
 
@@ -53,6 +57,8 @@ class Loop
      * @param  array<int, Tool>  $tools
      * @param  (Closure(array{id: string, name: string, arguments: array<string, mixed>}): bool)|null  $approvalGate
      * @param  array<int, Hook>  $hooks
+     * @param  array<int, ModelMiddleware>  $modelMiddleware
+     * @param  array<int, ToolMiddleware>  $toolMiddleware
      */
     public function __construct(
         protected TextProvider $provider,
@@ -62,6 +68,8 @@ class Loop
         protected int $maxTurns = 50,
         protected array $hooks = [],
         protected ?Backend $backend = null,
+        protected array $modelMiddleware = [],
+        protected array $toolMiddleware = [],
     ) {}
 
     /**
@@ -70,10 +78,12 @@ class Loop
      * @param  array<int, Tool>  $tools
      * @param  (Closure(array{id: string, name: string, arguments: array<string, mixed>}): bool)|null  $approvalGate
      * @param  array<int, Hook>  $hooks
+     * @param  array<int, ModelMiddleware>  $modelMiddleware
+     * @param  array<int, ToolMiddleware>  $toolMiddleware
      */
-    public static function for(string $provider, string $model, array $tools = [], ?Closure $approvalGate = null, array $hooks = [], ?Backend $backend = null): self
+    public static function for(string $provider, string $model, array $tools = [], ?Closure $approvalGate = null, array $hooks = [], ?Backend $backend = null, array $modelMiddleware = [], array $toolMiddleware = []): self
     {
-        return new self(app(AiManager::class)->textProvider($provider), $model, $tools, $approvalGate, hooks: $hooks, backend: $backend);
+        return new self(app(AiManager::class)->textProvider($provider), $model, $tools, $approvalGate, hooks: $hooks, backend: $backend, modelMiddleware: $modelMiddleware, toolMiddleware: $toolMiddleware);
     }
 
     /**
@@ -90,6 +100,14 @@ class Loop
             }
 
             $step = $this->turn($state);
+
+            // A hook (e.g. LoopGuard) may have halted the run during this turn —
+            // stop before executing the turn's tool calls. (Read the status
+            // directly: turn() mutates it via hooks, so a remembered isRunning()
+            // would be stale.)
+            if ($state->status !== RunState::STATUS_RUNNING) {
+                return $state;
+            }
 
             $calls = array_map($this->normalizeCall(...), $step->toolCalls);
 
@@ -141,17 +159,13 @@ class Loop
             $hook->beforeModel($state);
         }
 
-        $response = $this->provider->textGateway()->generateText(
+        $step = $this->generate(new ModelCall(
             $this->provider,
             $this->model,
             $state->instructions,
             $this->hydrate($state->history),
             $this->tools,
-            null,
-            new TextGenerationOptions(maxSteps: 0),
-        );
-
-        $step = $response->steps->first();
+        ));
 
         $state->history[] = [
             'role' => 'assistant',
@@ -164,6 +178,50 @@ class Loop
         }
 
         return $step;
+    }
+
+    /**
+     * Run the model call through the {@see ModelMiddleware} pipeline. The tail of
+     * the pipeline is the actual `generateText(maxSteps: 0)` call; middleware wrap
+     * it onion-style (first added is outermost) for retry, failover, etc.
+     */
+    protected function generate(ModelCall $call): Step
+    {
+        $core = fn (ModelCall $c): Step => $c->provider->textGateway()->generateText(
+            $c->provider,
+            $c->model,
+            $c->instructions,
+            $c->messages,
+            $c->tools,
+            null,
+            new TextGenerationOptions(maxSteps: 0),
+        )->steps->first();
+
+        $pipeline = array_reduce(
+            array_reverse($this->modelMiddleware),
+            fn (Closure $next, ModelMiddleware $mw): Closure => fn (ModelCall $c): Step => $mw->handle($c, $next),
+            $core,
+        );
+
+        return $pipeline($call);
+    }
+
+    /**
+     * Run a tool invocation through the {@see ToolMiddleware} pipeline. The tail
+     * is the actual `$tool->handle()` call; middleware wrap it onion-style for
+     * validation, retry, timeouts, etc.
+     */
+    protected function execute(ToolInvocation $invocation): string
+    {
+        $core = fn (ToolInvocation $i): string => (string) $i->tool->handle($i->request);
+
+        $pipeline = array_reduce(
+            array_reverse($this->toolMiddleware),
+            fn (Closure $next, ToolMiddleware $mw): Closure => fn (ToolInvocation $i): string => $mw->handle($i, $next),
+            $core,
+        );
+
+        return $pipeline($invocation);
     }
 
     /**
@@ -187,8 +245,14 @@ class Loop
 
             // A tool throwing should not crash the run — hand the error back to
             // the model as the tool result so it can react, retry, or report.
+            // The try/catch stays outermost so it also catches a middleware throw.
             try {
-                $result = (string) $tool->handle(new Request($call['arguments']));
+                $result = $this->execute(new ToolInvocation(
+                    $tool,
+                    $call['name'],
+                    $call['arguments'],
+                    new Request($call['arguments']),
+                ));
             } catch (Throwable $e) {
                 $result = 'The tool failed with an error: '.$e->getMessage();
             }
