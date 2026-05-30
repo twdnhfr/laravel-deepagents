@@ -30,6 +30,8 @@ class RunState implements JsonSerializable
 
     public const STATUS_DONE = 'done';
 
+    public const STATUS_HALTED = 'halted';
+
     /**
      * @param  array<int, array<string, mixed>>  $history
      * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>}>  $pendingToolCalls
@@ -42,6 +44,7 @@ class RunState implements JsonSerializable
         public string $status = self::STATUS_RUNNING,
         public ?string $finalText = null,
         public array $todos = [],
+        public ?string $haltReason = null,
     ) {}
 
     /**
@@ -69,6 +72,22 @@ class RunState implements JsonSerializable
         return $this->status === self::STATUS_DONE;
     }
 
+    public function isHalted(): bool
+    {
+        return $this->status === self::STATUS_HALTED;
+    }
+
+    /**
+     * Stop the run cleanly with a reason — a terminal state distinct from `done`.
+     * A hook calls this (e.g. {@see LoopGuard} on a no-progress loop); the
+     * {@see Loop} sees the run is no longer running and returns it.
+     */
+    public function halt(string $reason): void
+    {
+        $this->status = self::STATUS_HALTED;
+        $this->haltReason = $reason;
+    }
+
     public function jsonSerialize(): array
     {
         return [
@@ -78,6 +97,7 @@ class RunState implements JsonSerializable
             'status' => $this->status,
             'finalText' => $this->finalText,
             'todos' => $this->todos,
+            'haltReason' => $this->haltReason,
         ];
     }
 
@@ -98,6 +118,7 @@ class RunState implements JsonSerializable
             $data['status'] ?? self::STATUS_RUNNING,
             $data['finalText'] ?? null,
             $data['todos'] ?? [],
+            $data['haltReason'] ?? null,
         );
     }
 
