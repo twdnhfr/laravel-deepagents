@@ -213,6 +213,19 @@ final class DeepAgent
     }
 
     /**
+     * Adopt a backend as a fallback, used only when this agent has no backend
+     * of its own. A parent agent calls this on its sub-agents (via the `task`
+     * tool) so they share its artifact/memory store — mirroring deepagents'
+     * shared virtual filesystem — without overriding an explicit `backend()`.
+     */
+    public function inheritBackend(Backend $backend): static
+    {
+        $this->backend ??= $backend;
+
+        return $this;
+    }
+
+    /**
      * Load `AGENTS.md`-style memory files (read from the backend) into the
      * system prompt at the start of each run. Always-on context, à la deepagents.
      */
