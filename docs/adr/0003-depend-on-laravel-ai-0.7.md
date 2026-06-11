@@ -51,10 +51,17 @@ the 1.x-bound code.
 
 ## Follow-up
 
+- [x] **2026-06-11 — constraint widened to `^0.7.2|^0.8`.** `v0.8.1` verified:
+      full suite + provider spikes green. API drift was additive only at our
+      call sites (`ToolCall` gained optional reasoning parameters,
+      `generateText` gained an optional `$timeout`), and the `Type::$required`
+      reflection in `ValidateToolArgs` still holds on framework 13.15 (`?bool`,
+      `true` when required). CI's prefer-lowest leg keeps exercising the
+      `0.7.2` floor.
 - [ ] Bump to `^1.0` when `laravel/ai` 1.0 is tagged on Packagist; re-run the
       full suite (esp. the spikes) against it before release.
 
 ## References
 
-- `composer.json` (`"laravel/ai": "^0.7"`)
-- `TODO.md` (§1 note on the `^0.7` → `^1.0` move)
+- `composer.json` (`"laravel/ai": "^0.7.2|^0.8"`)
+- `TODO.md` (§1 note on the `^0.7`/`^0.8` → `^1.0` move)
