@@ -126,3 +126,29 @@ it('does not override a sub-agent that has its own backend', function () {
     expect($ownBackend->read('notes.md'))->toBe('own');
     expect($parentBackend->exists('notes.md'))->toBeFalse();
 });
+
+it('reports a sub-agent that suspended for approval instead of losing its run', function () {
+    $sub = DeepAgent::make()
+        ->provider(Sdk::provider([Sdk::turn('', [Sdk::toolCall('dangerous')], FinishReason::ToolCalls)]))
+        ->model('m')
+        ->requireApproval();
+
+    $task = new Task(['gated' => ['description' => 'gated', 'agent' => $sub]]);
+
+    expect((string) $task->handle(new Request(['subagent_type' => 'gated', 'description' => 'go'])))
+        ->toContain('suspended for tool approval')
+        ->toContain('gate the task delegation on the parent agent');
+});
+
+it('returns the halt reason for a sub-agent stopped by a guard', function () {
+    $sub = DeepAgent::make()
+        ->provider(Sdk::provider([Sdk::turn('', [Sdk::toolCall('same_call', ['a' => 1])], FinishReason::ToolCalls)]))
+        ->model('m')
+        ->guardAgainstLoops(1);
+
+    $task = new Task(['loopy' => ['description' => 'loops', 'agent' => $sub]]);
+
+    expect((string) $task->handle(new Request(['subagent_type' => 'loopy', 'description' => 'go'])))
+        ->toContain('halted')
+        ->toContain('No progress');
+});

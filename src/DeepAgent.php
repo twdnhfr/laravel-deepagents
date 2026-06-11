@@ -14,6 +14,7 @@ use Twdnhfr\LaravelDeepagents\Context\SummarizeHistory;
 use Twdnhfr\LaravelDeepagents\Contracts\Backend;
 use Twdnhfr\LaravelDeepagents\Runtime\Hook;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
+use Twdnhfr\LaravelDeepagents\Runtime\LoopException;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopGuard;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\FailoverProviders;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
@@ -223,6 +224,11 @@ final class DeepAgent
         return $this;
     }
 
+    /**
+     * Cap the number of model turns per user request. The budget is tracked on
+     * the {@see RunState}, so it spans suspend/resume — an approval pause does
+     * not refill it. `continue()` resets it for each fresh user message.
+     */
     public function maxTurns(int $maxTurns): static
     {
         $this->maxTurns = $maxTurns;
@@ -395,15 +401,23 @@ final class DeepAgent
 
     /**
      * Continue a conversation: append the user's next message to an existing
-     * (completed) run and advance it, so the agent keeps the full prior context.
-     * Instructions are taken from the existing state, not re-composed.
+     * (completed or halted) run and advance it, so the agent keeps the full
+     * prior context. Instructions are taken from the existing state, not
+     * re-composed, and the `maxTurns` budget is reset for the fresh user turn.
+     *
+     * A suspended run cannot be continued — it has pending tool calls awaiting
+     * a decision; `resume()` it instead.
      */
     public function continue(RunState $state, string $message): RunState
     {
+        if ($state->isSuspended()) {
+            throw LoopException::cannotContinueSuspended();
+        }
+
         $state->history[] = ['role' => 'user', 'content' => $message];
-        $state->pendingToolCalls = [];
         $state->finalText = null;
         $state->status = RunState::STATUS_RUNNING;
+        $state->turns = 0;
 
         return $this->loop()->advance($state);
     }

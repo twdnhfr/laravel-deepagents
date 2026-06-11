@@ -17,6 +17,12 @@ class LoopException extends RuntimeException
         return new self("Cannot resume a run with status [{$status}]; only a [suspended] run can be resumed.");
     }
 
+    public static function cannotContinueSuspended(): self
+    {
+        return new self('Cannot continue a suspended run: it has pending tool calls awaiting approval. '.
+            'Call resume() to approve and execute them first.');
+    }
+
     public static function unknownTool(string $name): self
     {
         return new self("The run wants to call tool [{$name}], but no such tool is registered on the loop.");

@@ -182,6 +182,25 @@ it('enforces the turn limit against a non-terminating tool loop', function () {
         ->toThrow(LoopException::class, 'turn limit of 3');
 });
 
+it('counts the turn budget across suspend/resume instead of refilling it', function () {
+    $spy = new SpyTool;
+    $loop = loopReturning(
+        [turnResponse('', [aToolCall('spy_tool')], FinishReason::ToolCalls)], // repeats forever
+        [$spy],
+        requireApproval: true,
+        maxTurns: 2,
+    );
+
+    $state = $loop->advance(RunState::start('sys', 'go')); // turn 1 → suspended
+    $state = $loop->resume($state);                        // turn 2 → suspended again
+
+    expect($state->isSuspended())->toBeTrue();
+    expect($state->turns)->toBe(2);
+
+    // The next resume would start turn 3 — over budget, despite the pauses.
+    expect(fn () => $loop->resume($state))->toThrow(LoopException::class, 'turn limit of 2');
+});
+
 it('throws when hydrating an unknown message role from history', function () {
     $loop = loopReturning([]);
     $state = new RunState('sys', [['role' => 'wizard', 'content' => 'poof']]);

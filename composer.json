@@ -34,13 +34,11 @@
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan-deprecation-rules": "^2.0",
-        "phpstan/phpstan-phpunit": "^2.0",
-        "spatie/laravel-ray": "^1.35"
+        "phpstan/phpstan-phpunit": "^2.0"
     },
     "autoload": {
         "psr-4": {
-            "Twdnhfr\\LaravelDeepagents\\": "src/",
-            "Twdnhfr\\LaravelDeepagents\\Database\\Factories\\": "database/factories/"
+            "Twdnhfr\\LaravelDeepagents\\": "src/"
         }
     },
     "autoload-dev": {
@@ -65,16 +63,10 @@
         }
     },
     "extra": {
-        "branch-alias": {
-            "dev-main": "0.1.x-dev"
-        },
         "laravel": {
             "providers": [
                 "Twdnhfr\\LaravelDeepagents\\LaravelDeepagentsServiceProvider"
-            ],
-            "aliases": {
-                "LaravelDeepagents": "Twdnhfr\\LaravelDeepagents\\Facades\\LaravelDeepagents"
-            }
+            ]
         }
     },
     "minimum-stability": "dev",

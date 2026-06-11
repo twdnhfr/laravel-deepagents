@@ -57,6 +57,7 @@ it('serializes to the expected shape', function () {
         'finalText' => null,
         'todos' => [],
         'haltReason' => null,
+        'turns' => 0,
     ]);
 });
 
@@ -88,6 +89,7 @@ it('applies defaults for omitted optional fields in fromArray', function () {
     expect($state->status)->toBe(RunState::STATUS_RUNNING);
     expect($state->finalText)->toBeNull();
     expect($state->todos)->toBe([]);
+    expect($state->turns)->toBe(0);
 });
 
 it('throws on malformed JSON', function () {
