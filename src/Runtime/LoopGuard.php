@@ -74,7 +74,7 @@ final class LoopGuard extends LoopHook
             return ['name' => $call['name'] ?? '', 'arguments' => $arguments];
         }, $calls);
 
-        return json_encode($normalized);
+        return json_encode($normalized, JSON_THROW_ON_ERROR);
     }
 
     /**

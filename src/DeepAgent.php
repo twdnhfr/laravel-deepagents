@@ -163,6 +163,11 @@ final class DeepAgent
     /**
      * Replace the tool set.
      *
+     * Use a fresh tool instance per agent: built-in tools receive run-scoped
+     * state (the RunState, the backend) by injection right before execution,
+     * so an instance shared between two agents — e.g. a parent and a
+     * sub-agent — would leak state between their runs.
+     *
      * @param  array<int, Tool>  $tools
      */
     public function tools(array $tools): static
@@ -173,7 +178,7 @@ final class DeepAgent
     }
 
     /**
-     * Add a single tool.
+     * Add a single tool. Use a fresh instance per agent — see {@see tools()}.
      */
     public function tool(Tool $tool): static
     {

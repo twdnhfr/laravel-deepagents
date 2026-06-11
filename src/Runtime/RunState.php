@@ -167,6 +167,9 @@ class RunState implements JsonSerializable
         throw LoopException::unknownPendingCall($id);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

@@ -15,6 +15,15 @@ use Twdnhfr\LaravelDeepagents\Contracts\Backend;
  * relative to the root and may not escape it (`..` is rejected). This is a
  * storage implementation, not an agent-facing file tool — exposing file
  * mutation to the model is a separate, deferred decision (see docs/adoption.md).
+ *
+ * Deliberate limitations to know about:
+ * - The `..` guard is conservative: it also rejects legitimate names that
+ *   merely contain two dots (e.g. `notes..md`).
+ * - Symlinks inside the root are followed, not resolved — a symlink pointing
+ *   outside the root will be read/written through. Only hand the backend a
+ *   root you trust.
+ * - Directories are created with the default permissions (umask applies);
+ *   tighten them at the filesystem level if the root holds sensitive data.
  */
 class FilesystemBackend implements Backend
 {

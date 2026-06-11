@@ -2,7 +2,11 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
-    level: 5
+    # Level 8 is the ceiling for this codebase by design: level 9+ forbids
+    # casting mixed, but coercing untrusted JSON blobs and model-provided tool
+    # arguments via deliberate (string)/(int) casts is exactly how the runtime
+    # handles its inputs.
+    level: 8
     paths:
         - src
         - database

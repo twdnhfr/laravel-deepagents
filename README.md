@@ -112,6 +112,12 @@ echo $state->finalText;
 
 By default the agent runs **autonomously**: it calls tools and loops until it has a final answer.
 
+> [!NOTE]
+> **One tool instance per agent.** Built-in tools receive run-scoped state (the
+> `RunState`, the storage backend) by injection right before execution — an
+> instance shared between two agents (e.g. a parent and a sub-agent) would leak
+> state between their runs. Construct tools fresh per agent, as in the example.
+
 ### Planning with todos
 
 Give the agent the built-in `write_todos` tool so it can keep a visible plan. The list lives on the run state:
