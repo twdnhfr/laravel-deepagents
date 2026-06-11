@@ -2,6 +2,20 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.5.0 - 2026-06-11
+
+Context-management hardening — part 3 of the road to 1.0.
+
+### Added
+
+- **`RunState->id`** — a stable run identifier, generated at construction and serialized with the state. States persisted by older versions restore fine (they receive a fresh id).
+- **`Resilience\ModelPipeline`** — the shared middleware composition every model call of the package now goes through.
+
+### Changed
+
+- **Offloaded tool results are run-scoped.** `offloadLargeToolResults()` now writes to `runs/{runId}/tool/{callId}` instead of `tool/{callId}`, so successive or concurrent runs sharing a persistent backend can no longer collide on provider call ids — and a host can clean up after a run via `backend->list("runs/{id}/")`. Artifacts created by older versions remain readable: the pointers in stored histories carry the full path. `write_artifact` paths stay global by design (the shared virtual filesystem between parent and sub-agents).
+- **Summarization shares the run's resilience stack.** `SummarizeHistory`'s compaction call now runs through the same `ModelMiddleware` pipeline as every turn (`retryModelCall()`, provider failover) — a rate limit or dropped connection during compaction fails over or retries instead of crashing the run. `SummarizeHistory` gained an optional `modelMiddleware` constructor argument; `DeepAgent` wires it automatically.
+
 ## v0.4.0 - 2026-06-11
 
 Human-in-the-loop, completed: per-call decisions before `resume()`. Until now a suspended run could only be approved wholesale — the host can now approve, correct, or reject each pending tool call individually.
