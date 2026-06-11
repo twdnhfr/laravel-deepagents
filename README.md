@@ -53,7 +53,7 @@ The how-and-why is recorded as Architecture Decision Records in [`docs/adr/`](do
 
 - PHP 8.3+
 - Laravel 13
-- [`laravel/ai`](https://github.com/laravel/ai) `^0.7` (configured with at least one provider/API key)
+- [`laravel/ai`](https://github.com/laravel/ai) `^0.7.2|^0.8` (configured with at least one provider/API key)
 
 ## Installation
 

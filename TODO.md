@@ -1,7 +1,7 @@
 # `twdnhfr/laravel-deepagents` — Roadmap
 
-> A batteries-included **deep-agent harness** for the [Laravel AI SDK](https://github.com/laravel/ai) (`laravel/ai` `^0.7`).
-> `^0.7` is the currently published line; it already contains the 1.x-bound code we build on. Move to `^1.0` once it's tagged on Packagist.
+> A batteries-included **deep-agent harness** for the [Laravel AI SDK](https://github.com/laravel/ai) (`laravel/ai` `^0.7.2|^0.8`).
+> `0.7`/`0.8` are the currently published lines; they already contain the 1.x-bound code we build on. Move to `^1.0` once it's tagged on Packagist.
 > Inspired by [`langchain-ai/deepagents`](https://github.com/langchain-ai/deepagents): planning, sub-agents, a virtual
 > filesystem, persistent memory, skills, human-in-the-loop and automatic context management — as an opinionated layer on
 > top of the SDK's agent loop. Distilled from the hand-built harness in our PMKI app, cleaned up for open source.
