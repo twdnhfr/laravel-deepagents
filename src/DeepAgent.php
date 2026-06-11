@@ -392,7 +392,11 @@ final class DeepAgent
     }
 
     /**
-     * Resume a previously suspended run once its pending tool calls are approved.
+     * Resume a previously suspended run. By default every pending tool call is
+     * executed as the model requested; record per-call decisions first via
+     * {@see RunState::approve()}, {@see RunState::edit()} (corrected arguments)
+     * or {@see RunState::reject()} (skip the call, hand the reason back to the
+     * model as its result).
      */
     public function resume(RunState $state): RunState
     {

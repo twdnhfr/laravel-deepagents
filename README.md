@@ -161,6 +161,25 @@ $final = $agent->resume(RunState::fromJson($stored));
 echo $final->finalText;
 ```
 
+The human does not have to wave everything through. Record a **per-call decision** on the state before
+resuming — approve as-is (the default), execute with corrected arguments, or reject with a reason the
+model gets back as the tool's result so it can adjust its plan:
+
+```php
+$state = RunState::fromJson($stored);
+
+$state->approve('tc_1');                                  // optional — approved is the default
+$state->edit('tc_2', ['path' => 'drafts/safe.md']);       // run with corrected arguments
+$state->reject('tc_3', 'Never email customers directly.'); // skip; the reason becomes the result
+
+$final = $agent->resume($state);
+```
+
+Decisions are plain data on the `RunState`, so they survive `toJson()`/`fromJson()` — collect them in a
+controller, persist, and resume in a queued job. A rejected call is never executed; the model sees
+`The user rejected this tool call: …` and reacts. With `edit()`, the model's original arguments stay
+visible on the assistant message in the history, so the change is auditable.
+
 ### Multi-turn conversations
 
 `run()` starts a fresh run; `continue()` carries an existing run forward with

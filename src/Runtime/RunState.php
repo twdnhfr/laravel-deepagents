@@ -17,6 +17,8 @@ use JsonSerializable;
  *                        hydrates real SDK Message objects from these on demand.
  *   - `pendingToolCalls` tool calls the model wants to make but that have NOT
  *                        run yet — the human-approvable payload while suspended.
+ *                        Record per-call decisions with {@see approve()},
+ *                        {@see edit()} and {@see reject()} before resuming.
  *   - `status`          `running` | `suspended` | `done`.
  *
  * Runtime configuration (provider, model, tools) lives on the {@see Loop}, not
@@ -32,9 +34,13 @@ class RunState implements JsonSerializable
 
     public const STATUS_HALTED = 'halted';
 
+    public const DECISION_APPROVED = 'approved';
+
+    public const DECISION_REJECTED = 'rejected';
+
     /**
      * @param  array<int, array<string, mixed>>  $history
-     * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>}>  $pendingToolCalls
+     * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>, decision?: string, reason?: string}>  $pendingToolCalls
      * @param  array<int, array{content: string, status: string}>  $todos
      * @param  int  $turns  model turns consumed against the loop's `maxTurns` budget; persists
      *                      across suspend/resume so an approval pause cannot refill the budget,
@@ -90,6 +96,68 @@ class RunState implements JsonSerializable
     {
         $this->status = self::STATUS_HALTED;
         $this->haltReason = $reason;
+    }
+
+    /**
+     * Explicitly approve pending tool calls. Optional — a pending call without a
+     * decision is executed on `resume()` anyway; use this when the host wants
+     * self-documenting, explicit decisions.
+     */
+    public function approve(string ...$ids): void
+    {
+        foreach ($ids as $id) {
+            $call = &$this->pendingCall($id);
+            $call['decision'] = self::DECISION_APPROVED;
+            unset($call['reason']);
+        }
+    }
+
+    /**
+     * Approve a pending tool call with corrected arguments — `resume()` executes
+     * it with these instead of what the model asked for. The model's original
+     * arguments remain visible on the assistant message in the history.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    public function edit(string $id, array $arguments): void
+    {
+        $call = &$this->pendingCall($id);
+        $call['arguments'] = $arguments;
+        $call['decision'] = self::DECISION_APPROVED;
+        unset($call['reason']);
+    }
+
+    /**
+     * Reject a pending tool call: `resume()` will not execute it. Instead the
+     * reason is handed back to the model as the tool's result, so it can adjust
+     * its plan — the human-in-the-loop equivalent of deepagents' `respond`.
+     */
+    public function reject(string $id, string $reason = 'No reason given.'): void
+    {
+        $call = &$this->pendingCall($id);
+        $call['decision'] = self::DECISION_REJECTED;
+        $call['reason'] = $reason;
+    }
+
+    /**
+     * The pending tool call with the given id, by reference for decisions to
+     * write through. Decisions only make sense on a suspended run.
+     *
+     * @return array{id: string, name: string, arguments: array<string, mixed>, decision?: string, reason?: string}
+     */
+    protected function &pendingCall(string $id): array
+    {
+        if (! $this->isSuspended()) {
+            throw LoopException::decisionRequiresSuspension($this->status);
+        }
+
+        foreach ($this->pendingToolCalls as $index => $call) {
+            if ($call['id'] === $id) {
+                return $this->pendingToolCalls[$index];
+            }
+        }
+
+        throw LoopException::unknownPendingCall($id);
     }
 
     public function jsonSerialize(): array

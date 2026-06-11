@@ -133,7 +133,9 @@ class Loop
     }
 
     /**
-     * Approve the pending tool calls, execute them, and continue the loop.
+     * Execute the pending tool calls and continue the loop. Calls without a
+     * recorded decision (or explicitly approved/edited ones) run as requested;
+     * rejected calls are skipped and their reason becomes the tool result.
      */
     public function resume(RunState $state): RunState
     {
@@ -235,13 +237,25 @@ class Loop
 
     /**
      * Execute a batch of tool calls and return the `tool_result` history entry.
+     * A call the human rejected (via {@see RunState::reject()}) is not executed;
+     * its reason goes back to the model as the tool result instead, in the same
+     * batched entry so the turn's call/result pairing stays intact.
      *
-     * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>}>  $calls
+     * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>, decision?: string, reason?: string}>  $calls
      * @return array<string, mixed>
      */
     protected function executeCalls(RunState $state, array $calls): array
     {
         $results = array_map(function (array $call) use ($state) {
+            if (($call['decision'] ?? null) === RunState::DECISION_REJECTED) {
+                return [
+                    'id' => $call['id'],
+                    'name' => $call['name'],
+                    'arguments' => $call['arguments'],
+                    'result' => 'The user rejected this tool call: '.($call['reason'] ?? 'No reason given.'),
+                ];
+            }
+
             $tool = $this->findTool($call['name']);
 
             if ($tool instanceof RunAware) {
