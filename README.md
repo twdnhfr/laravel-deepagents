@@ -225,6 +225,10 @@ $state = DeepAgent::make()
 > - Artifacts a sub-agent writes are readable by the parent and its siblings —
 >   they all hit the same store. Two agents writing the same path **overwrite**
 >   each other; there is no per-sub-agent sandbox.
+> - The exception is **offloaded tool output** (`offloadLargeToolResults()`):
+>   it is written under the run-scoped path `runs/{runId}/tool/{callId}`, so
+>   runs sharing a persistent backend never collide — and a host can clean up
+>   after a run via `backend->list("runs/{$state->id}/")`.
 > - To give a sub-agent its own private store, set `->backend(...)` on it
 >   explicitly — an explicit backend is always kept, never replaced by the
 >   parent's.

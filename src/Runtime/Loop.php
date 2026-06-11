@@ -6,7 +6,6 @@ use Closure;
 use Laravel\Ai\AiManager;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Tool;
-use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\ToolResultMessage;
@@ -21,6 +20,7 @@ use Twdnhfr\LaravelDeepagents\Backends\StateBackend;
 use Twdnhfr\LaravelDeepagents\Contracts\Backend;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelCall;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelPipeline;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ToolInvocation;
 use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ToolMiddleware;
 use Twdnhfr\LaravelDeepagents\Tools\BackendAware;
@@ -192,29 +192,12 @@ class Loop
     }
 
     /**
-     * Run the model call through the {@see ModelMiddleware} pipeline. The tail of
-     * the pipeline is the actual `generateText(maxSteps: 0)` call; middleware wrap
-     * it onion-style (first added is outermost) for retry, failover, etc.
+     * Run the model call through the {@see ModelMiddleware} pipeline (retry,
+     * failover, …) via the shared {@see ModelPipeline}.
      */
     protected function generate(ModelCall $call): Step
     {
-        $core = fn (ModelCall $c): Step => $c->provider->textGateway()->generateText(
-            $c->provider,
-            $c->model,
-            $c->instructions,
-            $c->messages,
-            $c->tools,
-            null,
-            new TextGenerationOptions(maxSteps: 0),
-        )->steps->first();
-
-        $pipeline = array_reduce(
-            array_reverse($this->modelMiddleware),
-            fn (Closure $next, ModelMiddleware $mw): Closure => fn (ModelCall $c): Step => $mw->handle($c, $next),
-            $core,
-        );
-
-        return $pipeline($call);
+        return ModelPipeline::run($this->modelMiddleware, $call);
     }
 
     /**

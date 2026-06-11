@@ -1,12 +1,17 @@
 <?php
 
+use Illuminate\Http\Client\ConnectionException;
 use Laravel\Ai\Contracts\Gateway\TextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
-use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Usage;
-use Laravel\Ai\Responses\TextResponse;
+use Laravel\Ai\Responses\Data\FinishReason;
+use Laravel\Ai\Responses\Data\Step;
 use Twdnhfr\LaravelDeepagents\Context\SummarizeHistory;
+use Twdnhfr\LaravelDeepagents\DeepAgent;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelCall;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\RetryModelCall;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
+use Twdnhfr\LaravelDeepagents\Tests\Fixtures\Sdk;
 
 afterEach(fn () => Mockery::close());
 
@@ -18,7 +23,7 @@ function summarizer(string $returns, ?string &$captured = null): TextProvider
         // $args[3] is the messages array; the transcript is the user message content.
         $captured = $args[3][0]->content ?? null;
 
-        return new TextResponse($returns, new Usage, new Meta);
+        return Sdk::turn($returns, [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
@@ -85,4 +90,75 @@ it('summarizes the older entries, not the kept ones', function () {
 
     expect($captured)->toContain('OLD_MESSAGE');
     expect($captured)->not->toContain('KEPT_MESSAGE');
+});
+
+it('runs the summarization call through the model middleware pipeline', function () {
+    // The summarize call hits a transient connection error first; with the
+    // run's retry middleware passed in, the hook retries instead of crashing.
+    $provider = Sdk::providerThrowingThen(
+        new ConnectionException('blip'),
+        Sdk::turn('RECOVERED', [], FinishReason::Stop),
+    );
+
+    $state = new RunState('sys', [
+        ['role' => 'user', 'content' => 'one'],
+        ['role' => 'user', 'content' => 'two'],
+    ]);
+
+    $hook = new SummarizeHistory(
+        $provider,
+        'm',
+        triggerTokens: 1,
+        keepLast: 1,
+        modelMiddleware: [new RetryModelCall(times: 2, sleep: fn () => null)],
+    );
+
+    $hook->beforeModel($state);
+
+    expect($state->history[0]['content'])->toBe("Summary of the earlier conversation:\nRECOVERED");
+});
+
+it('summarization without middleware propagates a model error (no silent retry)', function () {
+    $provider = Sdk::providerAlwaysThrowing(new ConnectionException('down'));
+
+    $state = new RunState('sys', [
+        ['role' => 'user', 'content' => 'one'],
+        ['role' => 'user', 'content' => 'two'],
+    ]);
+
+    expect(fn () => (new SummarizeHistory($provider, 'm', triggerTokens: 1, keepLast: 1))->beforeModel($state))
+        ->toThrow(ConnectionException::class);
+});
+
+it('DeepAgent wires the run middleware into the summarize hook', function () {
+    $spy = new class implements ModelMiddleware
+    {
+        public int $calls = 0;
+
+        public function handle(ModelCall $call, Closure $next): Step
+        {
+            $this->calls++;
+
+            return $next($call);
+        }
+    };
+
+    $provider = Sdk::provider([
+        Sdk::turn('SUM', [], FinishReason::Stop),  // the compaction call
+        Sdk::turn('done', [], FinishReason::Stop), // the actual turn
+    ]);
+
+    $state = DeepAgent::make()
+        ->provider($provider)
+        ->model('m')
+        ->basePrompt(null)
+        ->summarize(1, 0)
+        ->modelMiddleware($spy)
+        ->run(str_repeat('x', 400));
+
+    // Both model calls of this run — summarization and the turn — went
+    // through the same middleware stack.
+    expect($spy->calls)->toBe(2);
+    expect($state->finalText)->toBe('done');
+    expect($state->history[0]['content'])->toStartWith('Summary of the earlier conversation:');
 });

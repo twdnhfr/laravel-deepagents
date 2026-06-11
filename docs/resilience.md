@@ -102,6 +102,12 @@ middleware. The library's existing tool-error capture (`Loop.php:191-194`, "hand
 the error back to the model as the result") stays as the **innermost** default,
 so a thrown tool error is still never fatal even with no middleware configured.
 
+The model pipeline is shared (`Resilience\ModelPipeline`): every model call the
+package makes goes through it — each loop turn *and* internal calls like
+`SummarizeHistory`'s compaction call. Configure `retryModelCall()` or a failover
+chain once and it covers summarization too; a rate limit during compaction fails
+over instead of crashing the run.
+
 ---
 
 ## 2. Shipped batteries

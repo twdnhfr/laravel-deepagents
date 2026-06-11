@@ -10,11 +10,13 @@ use Twdnhfr\LaravelDeepagents\Runtime\RunState;
  * Context management: keep oversized tool results out of the prompt.
  *
  * Runs before each model turn. Any `tool_result` whose content exceeds
- * `maxChars` is written to the storage {@see Backend} (keyed by a stable path)
- * and replaced inline with a short head preview plus a pointer the model can
- * follow with the `read_artifact` tool. The bulk lives in the backend, so the
- * `RunState` blob stays small; use a persistent backend if artifacts must
- * survive across suspend/resume.
+ * `maxChars` is written to the storage {@see Backend} — under the run-scoped
+ * path `runs/{runId}/tool/{callId}`, so successive or concurrent runs sharing a
+ * persistent backend never collide, and a host can clean up after a run with
+ * `backend->list("runs/{runId}/")` — and replaced inline with a short head
+ * preview plus a pointer the model can follow with the `read_artifact` tool.
+ * The bulk lives in the backend, so the `RunState` blob stays small; use a
+ * persistent backend if artifacts must survive across suspend/resume.
  *
  * This bounds the per-turn token cost of a single huge tool output without
  * losing the data — complementary to {@see SummarizeHistory}, which compacts the
@@ -62,7 +64,7 @@ class OffloadLargeToolResults extends LoopHook
                     continue;
                 }
 
-                $path = 'tool/'.($result['id'] ?? "{$i}-{$j}");
+                $path = 'runs/'.$state->id.'/tool/'.($result['id'] ?? "{$i}-{$j}");
                 $this->backend->write($path, $content);
 
                 $results[$j]['result'] = mb_substr($content, 0, $this->previewChars)
