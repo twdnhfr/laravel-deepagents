@@ -2,6 +2,24 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.3.0 - 2026-06-11
+
+Pre-1.0 cleanup and loop-semantics fixes — part 1 of the road to 1.0.
+
+### Changed
+
+- **`maxTurns` is now a per-user-request budget tracked on the `RunState`** (new serialized `turns` field). An approval pause no longer refills the budget — turns are counted across `resume()`; `continue()` resets the budget for each fresh user message. Run states serialized by older versions restore fine (`turns` defaults to 0).
+- **`continue()` on a suspended run now throws** `LoopException::cannotContinueSuspended` instead of silently discarding the pending tool calls. `resume()` the run first.
+
+### Fixed
+
+- A `beforeModel` hook that halts the run now skips the model call entirely, instead of paying for a turn whose result is discarded.
+- The `task` tool now surfaces a suspended sub-agent as a clear misconfiguration message and returns a halted sub-agent's `haltReason`, instead of "(the sub-agent returned no output)".
+
+### Removed
+
+- Package-skeleton leftovers that were never part of the real API: the placeholder `laravel-deepagents` artisan command, the empty `LaravelDeepagents` class and facade (incl. the composer alias), the unused views/factories scaffolding, and the `spatie/laravel-ray` dev-dependency.
+
 ## v0.2.0 - 2026-05-30
 
 Resilience: around-call middleware at the loop seam ([ADR-0005](docs/adr/0005-resilience-at-the-loop-seam.md)). Transient failure — rate limits, dropped connections, flaky tools, no-progress loops — now has a first-class home in the package-owned loop, with batteries included and an escape hatch for host-specific policy. See [`docs/resilience.md`](docs/resilience.md).
