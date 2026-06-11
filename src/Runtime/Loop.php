@@ -282,20 +282,28 @@ class Loop
      */
     protected function hydrate(array $history): array
     {
-        return array_map(fn (array $m) => match ($m['role']) {
-            'user' => new UserMessage($m['content']),
-            'assistant' => new AssistantMessage(
-                $m['content'] ?? '',
-                collect($m['toolCalls'] ?? [])->map(
-                    fn (array $c) => new ToolCall($c['id'], $c['name'], $c['arguments'], $c['id']),
+        return array_map(function (array $m): Message {
+            /** @var array<int, array{id: string, name: string, arguments: array<string, mixed>}> $calls */
+            $calls = is_array($m['toolCalls'] ?? null) ? $m['toolCalls'] : [];
+
+            /** @var array<int, array{id: string, name: string, arguments: array<string, mixed>, result: string}> $results */
+            $results = is_array($m['toolResults'] ?? null) ? $m['toolResults'] : [];
+
+            return match ($m['role']) {
+                'user' => new UserMessage((string) $m['content']),
+                'assistant' => new AssistantMessage(
+                    (string) ($m['content'] ?? ''),
+                    collect($calls)->map(
+                        fn (array $c) => new ToolCall($c['id'], $c['name'], $c['arguments'], $c['id']),
+                    ),
                 ),
-            ),
-            'tool_result' => new ToolResultMessage(
-                collect($m['toolResults'] ?? [])->map(
-                    fn (array $r) => new ToolResult($r['id'], $r['name'], $r['arguments'], $r['result'], $r['id']),
+                'tool_result' => new ToolResultMessage(
+                    collect($results)->map(
+                        fn (array $r) => new ToolResult($r['id'], $r['name'], $r['arguments'], $r['result'], $r['id']),
+                    ),
                 ),
-            ),
-            default => throw LoopException::unknownMessageRole((string) $m['role']),
+                default => throw LoopException::unknownMessageRole((string) $m['role']),
+            };
         }, $history);
     }
 
@@ -355,12 +363,14 @@ class Loop
      */
     protected function needsApproval(array $calls): bool
     {
-        if ($this->approvalGate === null) {
+        $gate = $this->approvalGate;
+
+        if ($gate === null) {
             return false;
         }
 
         foreach ($calls as $call) {
-            if (($this->approvalGate)($call)) {
+            if ($gate($call)) {
                 return true;
             }
         }

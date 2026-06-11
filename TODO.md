@@ -161,7 +161,9 @@ What we reuse instead of rebuilding:
 - [ ] Artisan generators: `make:agent`, `make:tool`, `make:skill`.
 - [ ] Facade + clean public API surface; semantic-versioned.
 - [ ] Pest test suite (unit + feature) using SDK fakes; high coverage of tools & backends.
-- [ ] PHPStan max level on `src/`.
+- [x] PHPStan on `src/` at **level 8** (up from 5, empty baseline). Level 9+ is out by design: it forbids
+      casting `mixed`, but deliberate `(string)`/`(int)` coercion of untrusted JSON and model-provided tool
+      arguments is how the runtime handles its inputs (rationale in `phpstan.neon.dist`).
 - [ ] README quickstart + `docs/` (architecture, backends, sub-agents, HITL, profiles, going-to-production).
 - [~] Runnable `examples/` — `examples/demo.php` (offline, scripted) covers all Tier-1 features. More to come (research agent, etc.).
 - [ ] CHANGELOG, CONTRIBUTING, SECURITY, Code of Conduct.
