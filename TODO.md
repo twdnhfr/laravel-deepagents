@@ -139,7 +139,8 @@ What we reuse instead of rebuilding:
 - [ ] Skill sources resolvable from disk and/or DB (last-wins override).
 
 ### M5 — Human-in-the-loop & safety
-- [x] **Interrupt-on-tool**: `requireApproval()` takes all / a tool allow-list / a per-call closure; a turn with any gated call suspends. (edit/reject of a pending call: later.)
+- [x] **Interrupt-on-tool**: `requireApproval()` takes all / a tool allow-list / a per-call closure; a turn with any gated call suspends.
+- [x] **Per-call decisions**: `RunState->approve()` / `edit()` (corrected arguments) / `reject()` (reason becomes the tool result) before `resume()` — deepagents' accept/edit/respond, serialized on the run state.
 - [x] **🔑 Resume**: `RunState->toJson()` / `RunState::fromJson()` + `DeepAgent->resume()` restore a run across an HTTP/queue boundary.
 - [x] **Patch dangling tool calls**: `Loop` inserts a synthetic `tool_result` for any assistant tool-call lacking one, so restored/edited histories stay sendable.
 - [x] Safe tool execution: `Loop` catches a thrown tool error and returns it as the tool result, so a failing tool can't crash the run (the model sees the error and can react). Unknown-tool stays a hard error (misconfiguration).

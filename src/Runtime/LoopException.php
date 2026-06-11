@@ -23,6 +23,17 @@ class LoopException extends RuntimeException
             'Call resume() to approve and execute them first.');
     }
 
+    public static function decisionRequiresSuspension(string $status): self
+    {
+        return new self("Cannot decide on a pending tool call of a run with status [{$status}]; ".
+            'only a [suspended] run has calls awaiting approval.');
+    }
+
+    public static function unknownPendingCall(string $id): self
+    {
+        return new self("No pending tool call with id [{$id}] exists on this run.");
+    }
+
     public static function unknownTool(string $name): self
     {
         return new self("The run wants to call tool [{$name}], but no such tool is registered on the loop.");
