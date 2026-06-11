@@ -176,6 +176,10 @@ $state = $agent->continue(RunState::fromJson($stored), 'And in Tokyo?');
 echo $state->finalText; // resolves "And in Tokyo?" using the prior turn
 ```
 
+A *suspended* run (pending tool approval) cannot be `continue()`d — it throws;
+`resume()` it first. Each `continue()` resets the `maxTurns` budget, which is
+otherwise tracked on the run state across suspend/resume.
+
 ### Sub-agents: delegate to an isolated context
 
 Register a sub-agent and the parent gets a `task` tool to delegate self-contained

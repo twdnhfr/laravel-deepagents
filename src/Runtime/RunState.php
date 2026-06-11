@@ -36,6 +36,9 @@ class RunState implements JsonSerializable
      * @param  array<int, array<string, mixed>>  $history
      * @param  array<int, array{id: string, name: string, arguments: array<string, mixed>}>  $pendingToolCalls
      * @param  array<int, array{content: string, status: string}>  $todos
+     * @param  int  $turns  model turns consumed against the loop's `maxTurns` budget; persists
+     *                      across suspend/resume so an approval pause cannot refill the budget,
+     *                      and resets when `continue()` starts a fresh user turn
      */
     public function __construct(
         public string $instructions,
@@ -45,6 +48,7 @@ class RunState implements JsonSerializable
         public ?string $finalText = null,
         public array $todos = [],
         public ?string $haltReason = null,
+        public int $turns = 0,
     ) {}
 
     /**
@@ -98,6 +102,7 @@ class RunState implements JsonSerializable
             'finalText' => $this->finalText,
             'todos' => $this->todos,
             'haltReason' => $this->haltReason,
+            'turns' => $this->turns,
         ];
     }
 
@@ -119,6 +124,7 @@ class RunState implements JsonSerializable
             $data['finalText'] ?? null,
             $data['todos'] ?? [],
             $data['haltReason'] ?? null,
+            $data['turns'] ?? 0,
         );
     }
 

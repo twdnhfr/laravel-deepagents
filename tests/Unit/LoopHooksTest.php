@@ -45,6 +45,27 @@ it('calls beforeModel and afterModel once per model turn', function () {
     expect($hook->after)->toBe(2);
 });
 
+it('skips the model call when a beforeModel hook halts the run', function () {
+    $gateway = Mockery::mock(TextGateway::class);
+    $gateway->shouldNotReceive('generateText');
+
+    $provider = Mockery::mock(TextProvider::class);
+    $provider->shouldReceive('textGateway')->andReturn($gateway);
+
+    $halting = new class extends LoopHook
+    {
+        public function beforeModel(RunState $state): void
+        {
+            $state->halt('budget exhausted');
+        }
+    };
+
+    $state = (new Loop($provider, 'm', hooks: [$halting]))->advance(RunState::start('sys', 'go'));
+
+    expect($state->isHalted())->toBeTrue();
+    expect($state->haltReason)->toBe('budget exhausted');
+});
+
 it('lets beforeModel compact the history that is actually sent to the model', function () {
     $sentMessageCount = null;
 

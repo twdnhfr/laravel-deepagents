@@ -75,6 +75,19 @@ class Task implements BackendAware, Tool
         try {
             $state = $agent->run((string) ($request['description'] ?? ''));
 
+            // A sub-agent must run autonomously: its RunState is discarded after
+            // this call, so a suspension could never be resumed. Surface the
+            // misconfiguration instead of silently returning nothing.
+            if ($state->isSuspended()) {
+                return "Sub-agent [{$name}] suspended for tool approval, which is not supported — its run state is ".
+                    'discarded after delegation. Configure the sub-agent to run autonomously and gate the task '.
+                    'delegation on the parent agent instead.';
+            }
+
+            if ($state->isHalted()) {
+                return "Sub-agent [{$name}] halted: ".($state->haltReason ?? 'no reason given');
+            }
+
             return $state->finalText ?? '(the sub-agent returned no output)';
         } catch (Throwable $e) {
             return 'Sub-agent failed: '.$e->getMessage();

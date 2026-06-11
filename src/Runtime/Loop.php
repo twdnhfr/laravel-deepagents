@@ -92,10 +92,11 @@ class Loop
      */
     public function advance(RunState $state): RunState
     {
-        $turns = 0;
-
         while ($state->isRunning()) {
-            if (++$turns > $this->maxTurns) {
+            // The turn budget lives on the state, so it spans suspend/resume:
+            // an approval pause does not refill it. continue() resets it for a
+            // fresh user turn.
+            if (++$state->turns > $this->maxTurns) {
                 throw LoopException::turnLimitExceeded($this->maxTurns);
             }
 
@@ -105,7 +106,7 @@ class Loop
             // stop before executing the turn's tool calls. (Read the status
             // directly: turn() mutates it via hooks, so a remembered isRunning()
             // would be stale.)
-            if ($state->status !== RunState::STATUS_RUNNING) {
+            if ($step === null || $state->status !== RunState::STATUS_RUNNING) {
                 return $state;
             }
 
@@ -149,14 +150,22 @@ class Loop
 
     /**
      * Run a single model turn: one `generateText(maxSteps: 0)` call. Records the
-     * assistant turn onto the history and returns its {@see Step}.
+     * assistant turn onto the history and returns its {@see Step} — or null when
+     * a `beforeModel` hook ended the run, in which case the model is never called.
      */
-    protected function turn(RunState $state): Step
+    protected function turn(RunState $state): ?Step
     {
         $this->repairHistory($state);
 
         foreach ($this->hooks as $hook) {
             $hook->beforeModel($state);
+        }
+
+        // A beforeModel hook may have halted (or otherwise ended) the run —
+        // skip the model call entirely rather than paying for a turn whose
+        // result would be discarded.
+        if ($state->status !== RunState::STATUS_RUNNING) {
+            return null;
         }
 
         $step = $this->generate(new ModelCall(
