@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.6.0 - 2026-06-11
+
+Compatibility with the `laravel/ai` 0.8 line.
+
+### Changed
+
+- **`laravel/ai` constraint widened to `^0.7.2|^0.8`.** Verified against v0.8.1: the full suite (including the provider wire-format spikes), PHPStan and the offline demo are green; the API drift between 0.7.2 and 0.8.1 is additive at every call site this package touches (`ToolCall` gained optional reasoning parameters, `generateText()` an optional timeout). CI exercises both ends of the range — prefer-lowest stays on 0.7.2, prefer-stable runs 0.8. No code changes; details in ADR-0003.
+
 ## v0.5.1 - 2026-06-11
 
 Internal quality and documentation — no behaviour changes.
