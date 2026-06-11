@@ -3,10 +3,12 @@
 namespace Twdnhfr\LaravelDeepagents\Context;
 
 use Laravel\Ai\Contracts\Providers\TextProvider;
-use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Messages\UserMessage;
 use Twdnhfr\LaravelDeepagents\Runtime\Hook;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopHook;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelCall;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelMiddleware;
+use Twdnhfr\LaravelDeepagents\Runtime\Resilience\ModelPipeline;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
 
 /**
@@ -27,11 +29,17 @@ use Twdnhfr\LaravelDeepagents\Runtime\RunState;
  */
 class SummarizeHistory extends LoopHook
 {
+    /**
+     * @param  array<int, ModelMiddleware>  $modelMiddleware  the run's resilience stack (retry,
+     *                                                        failover, …) — the summarization call goes through the
+     *                                                        same {@see ModelPipeline} as every turn
+     */
     public function __construct(
         protected TextProvider $provider,
         protected string $model,
         protected int $triggerTokens = 12000,
         protected int $keepLast = 6,
+        protected array $modelMiddleware = [],
     ) {}
 
     public function beforeModel(RunState $state): void
@@ -136,17 +144,15 @@ class SummarizeHistory extends LoopHook
 
     protected function summarize(string $transcript): string
     {
-        $response = $this->provider->textGateway()->generateText(
+        $step = ModelPipeline::run($this->modelMiddleware, new ModelCall(
             $this->provider,
             $this->model,
             'You compress conversation history. Produce a concise summary that preserves decisions, facts, '.
             'identifiers and any open tasks, so the assistant can continue without the original messages.',
             [new UserMessage("Summarize the following conversation excerpt:\n\n".$transcript)],
             [],
-            null,
-            new TextGenerationOptions(maxSteps: 0),
-        );
+        ));
 
-        return trim($response->text);
+        return trim($step->text);
     }
 }

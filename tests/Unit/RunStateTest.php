@@ -47,9 +47,11 @@ it('serializes to the expected shape', function () {
         pendingToolCalls: [['id' => 'tc1', 'name' => 'tool', 'arguments' => ['a' => 1]]],
         status: RunState::STATUS_SUSPENDED,
         finalText: null,
+        id: 'run-1',
     );
 
     expect($state->jsonSerialize())->toBe([
+        'id' => 'run-1',
         'instructions' => 'sys',
         'history' => [['role' => 'user', 'content' => 'hi']],
         'pendingToolCalls' => [['id' => 'tc1', 'name' => 'tool', 'arguments' => ['a' => 1]]],
@@ -59,6 +61,17 @@ it('serializes to the expected shape', function () {
         'haltReason' => null,
         'turns' => 0,
     ]);
+});
+
+it('generates a stable run id that survives serialization', function () {
+    $state = RunState::start('sys', 'hi');
+
+    expect($state->id)->toBeString()->not->toBe('');
+    expect(RunState::fromJson($state->toJson())->id)->toBe($state->id);
+
+    // Each run gets its own id; a restored blob without one gets a fresh id.
+    expect(RunState::start('sys', 'hi')->id)->not->toBe($state->id);
+    expect(RunState::fromArray(['instructions' => 'legacy'])->id)->toBeString()->not->toBe('');
 });
 
 it('round-trips losslessly through JSON', function () {

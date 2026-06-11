@@ -25,11 +25,33 @@ it('offloads a large tool result to the backend and clips the inline content', f
 
     (new OffloadLargeToolResults($backend, maxChars: 2000, previewChars: 100))->beforeModel($state);
 
-    expect($backend->read('tool/t1'))->toBe($big);
+    expect($backend->read("runs/{$state->id}/tool/t1"))->toBe($big);
 
     $clipped = $state->history[0]['toolResults'][0]['result'];
     expect(mb_strlen($clipped))->toBeLessThan(2000);
-    expect($clipped)->toContain('read_artifact')->toContain('tool/t1');
+    expect($clipped)->toContain('read_artifact')->toContain("runs/{$state->id}/tool/t1");
+});
+
+it('namespaces offloaded artifacts per run, so runs sharing a backend never collide', function () {
+    $backend = new StateBackend;
+    $hook = new OffloadLargeToolResults($backend, maxChars: 100, previewChars: 10);
+
+    // Two runs whose tool calls carry the same provider call id.
+    $first = new RunState('sys', [
+        ['role' => 'tool_result', 'toolResults' => [['id' => 'tc', 'name' => 'dump', 'arguments' => [], 'result' => str_repeat('a', 500)]]],
+    ]);
+    $second = new RunState('sys', [
+        ['role' => 'tool_result', 'toolResults' => [['id' => 'tc', 'name' => 'dump', 'arguments' => [], 'result' => str_repeat('b', 500)]]],
+    ]);
+
+    $hook->beforeModel($first);
+    $hook->beforeModel($second);
+
+    expect($backend->read("runs/{$first->id}/tool/tc"))->toBe(str_repeat('a', 500));
+    expect($backend->read("runs/{$second->id}/tool/tc"))->toBe(str_repeat('b', 500));
+
+    // A host can clean up everything one run left behind by its prefix.
+    expect($backend->list("runs/{$first->id}/"))->toBe(["runs/{$first->id}/tool/tc"]);
 });
 
 it('leaves small tool results untouched', function () {
@@ -56,7 +78,7 @@ it('does not re-offload an already-clipped result (idempotent)', function () {
     $hook->beforeModel($state);
 
     expect($state->history[0]['toolResults'][0]['result'])->toBe($afterFirst);
-    expect($backend->list())->toBe(['tool/t1']);
+    expect($backend->list())->toBe(["runs/{$state->id}/tool/t1"]);
 });
 
 it('never re-offloads the output of read_artifact', function () {

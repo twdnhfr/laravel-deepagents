@@ -45,6 +45,10 @@ class RunState implements JsonSerializable
      * @param  int  $turns  model turns consumed against the loop's `maxTurns` budget; persists
      *                      across suspend/resume so an approval pause cannot refill the budget,
      *                      and resets when `continue()` starts a fresh user turn
+     * @param  string|null  $id  a stable identifier for this run, generated at construction and
+     *                           serialized with the state. Used to namespace run-scoped backend
+     *                           writes (offloaded tool results) so concurrent or successive runs
+     *                           sharing a persistent backend cannot collide.
      */
     public function __construct(
         public string $instructions,
@@ -55,7 +59,10 @@ class RunState implements JsonSerializable
         public array $todos = [],
         public ?string $haltReason = null,
         public int $turns = 0,
-    ) {}
+        public ?string $id = null,
+    ) {
+        $this->id ??= bin2hex(random_bytes(8));
+    }
 
     /**
      * Begin a fresh run from a system prompt and the user's first message.
@@ -163,6 +170,7 @@ class RunState implements JsonSerializable
     public function jsonSerialize(): array
     {
         return [
+            'id' => $this->id,
             'instructions' => $this->instructions,
             'history' => $this->history,
             'pendingToolCalls' => $this->pendingToolCalls,
@@ -193,6 +201,7 @@ class RunState implements JsonSerializable
             $data['todos'] ?? [],
             $data['haltReason'] ?? null,
             $data['turns'] ?? 0,
+            $data['id'] ?? null,
         );
     }
 

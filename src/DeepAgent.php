@@ -493,12 +493,15 @@ final class DeepAgent
         $hooks = $this->hooks;
 
         if ($this->summarize !== null) {
-            // Summarization runs before any user hooks so they see the compacted history.
+            // Summarization runs before any user hooks so they see the compacted
+            // history, and its model call shares the run's resilience stack
+            // (retry/failover) so a transient error there cannot crash the run.
             array_unshift($hooks, new SummarizeHistory(
                 $provider,
                 $model,
                 $this->summarize['trigger'],
                 $this->summarize['keep'],
+                $modelMiddleware,
             ));
         }
 
