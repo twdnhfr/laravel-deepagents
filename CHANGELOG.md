@@ -2,6 +2,18 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.4.0 - 2026-06-11
+
+Human-in-the-loop, completed: per-call decisions before `resume()`. Until now a suspended run could only be approved wholesale — the host can now approve, correct, or reject each pending tool call individually.
+
+### Added
+
+- **`RunState::approve(...ids)`** — explicitly approve pending tool calls (optional; an undecided call is executed on `resume()` as before).
+- **`RunState::edit(id, arguments)`** — approve a call with corrected arguments. The model's original request stays on the assistant message in the history, so the change is auditable.
+- **`RunState::reject(id, reason)`** — the call is never executed; the reason is handed back to the model as the tool's result (`The user rejected this tool call: …`), so it can adjust its plan. The equivalent of deepagents' `respond`.
+
+Decisions are plain data on the serialized run state, so they survive `toJson()`/`fromJson()` across HTTP/queue boundaries — collect them in a controller, persist, resume in a worker. `resume()` is unchanged: without recorded decisions it behaves exactly as before. Deciding on a non-suspended run or an unknown call id throws a `LoopException`.
+
 ## v0.3.0 - 2026-06-11
 
 Pre-1.0 cleanup and loop-semantics fixes — part 1 of the road to 1.0.
