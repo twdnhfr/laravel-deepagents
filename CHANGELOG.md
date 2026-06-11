@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.5.1 - 2026-06-11
+
+Internal quality and documentation — no behaviour changes.
+
+### Changed
+
+- **PHPStan raised from level 5 to level 8** on `src/` (zero baseline entries). The findings fixed along the way: stricter shape validation when rehydrating history messages, a JSON-encode failure in the loop guard now throws instead of being swallowed, and tighter return types. Level 8 is the deliberate ceiling — level 9+ forbids the intentional `(string)`/`(int)` coercion of untrusted JSON and model-provided tool arguments that this runtime is built around (rationale in `phpstan.neon.dist`).
+- **Documentation**: the one-tool-instance-per-agent convention is now documented on `tool()`/`tools()` and in the README (built-in tools receive run-scoped state by injection — sharing an instance between agents leaks state). `FilesystemBackend`'s deliberate limitations (conservative `..` guard, symlinks followed, umask-default directory permissions) are spelled out on the class.
+
 ## v0.5.0 - 2026-06-11
 
 Context-management hardening — part 3 of the road to 1.0.
