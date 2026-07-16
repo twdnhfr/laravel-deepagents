@@ -2,6 +2,10 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.7.0 - 2026-07-16
+
+Require laravel/ai ^0.9.0 (drops ^0.7.2|^0.8)
+
 ## v0.6.0 - 2026-06-11
 
 Compatibility with the `laravel/ai` 0.8 line.
