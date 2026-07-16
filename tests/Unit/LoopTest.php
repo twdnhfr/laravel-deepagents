@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Gateway\StepResponse;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Step;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Laravel\Ai\Responses\Data\Usage;
-use Laravel\Ai\Responses\TextResponse;
 use Laravel\Ai\Tools\Request;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopException;
@@ -18,12 +18,10 @@ use Twdnhfr\LaravelDeepagents\Tests\Fixtures\SpyTool;
 
 afterEach(fn () => Mockery::close());
 
-/** A single-turn gateway response carrying one Step. */
-function turnResponse(string $text, array $toolCalls, FinishReason $reason): TextResponse
+/** A single-turn gateway step response. */
+function turnResponse(string $text, array $toolCalls, FinishReason $reason): StepResponse
 {
-    $step = new Step($text, $toolCalls, [], $reason, new Usage, new Meta);
-
-    return (new TextResponse($text, new Usage, new Meta))->withSteps(collect([$step]));
+    return new StepResponse($text, $toolCalls, $reason, new Usage, new Meta);
 }
 
 function aToolCall(string $name, array $args = [], string $id = 'tc'): ToolCall
@@ -35,16 +33,16 @@ function aToolCall(string $name, array $args = [], string $id = 'tc'): ToolCall
  * Build a Loop whose gateway returns the given responses in sequence (the last
  * one repeats for any further turns).
  *
- * @param  array<int, TextResponse>  $responses
+ * @param  array<int, StepResponse>  $responses
  * @param  array<int, Tool>  $tools
  */
 function loopReturning(array $responses, array $tools = [], bool $requireApproval = false, int $maxTurns = 50): Loop
 {
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturn(...$responses);
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturn(...$responses);
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     return new Loop($provider, 'test-model', $tools, $requireApproval ? fn (): bool => true : null, $maxTurns);
 }

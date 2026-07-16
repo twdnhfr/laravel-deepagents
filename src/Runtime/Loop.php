@@ -30,7 +30,7 @@ use Twdnhfr\LaravelDeepagents\Tools\RunAware;
  * A turn-by-turn agent loop that this package owns, rather than delegating to
  * the SDK's gateway-internal loop.
  *
- * Each turn is a single `generateText(maxSteps: 0)` call — the uniform
+ * Each turn is a single `generateTextStep` (single-step) call — the uniform
  * single-turn seam established by the spikes: across Anthropic, OpenAI and
  * Gemini, `maxSteps: 0` returns the model's tool-call intention WITHOUT
  * executing it. Owning the loop is what unlocks human-in-the-loop approval and
@@ -151,7 +151,7 @@ class Loop
     }
 
     /**
-     * Run a single model turn: one `generateText(maxSteps: 0)` call. Records the
+     * Run a single model turn: one `generateTextStep` (single-step) call. Records the
      * assistant turn onto the history and returns its {@see Step} — or null when
      * a `beforeModel` hook ended the run, in which case the model is never called.
      */

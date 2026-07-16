@@ -1,8 +1,9 @@
 <?php
 
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Tools\Request;
 use Twdnhfr\LaravelDeepagents\Backends\StateBackend;
@@ -50,10 +51,10 @@ it('returns a message for an unknown sub-agent', function () {
 });
 
 it('catches a sub-agent failure and returns it as text', function () {
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andThrow(new RuntimeException('boom'));
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andThrow(new RuntimeException('boom'));
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $broken = DeepAgent::make()->provider($provider)->model('m');
     $task = new Task(['x' => ['description' => 'x', 'agent' => $broken]]);

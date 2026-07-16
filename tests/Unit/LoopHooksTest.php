@@ -1,7 +1,8 @@
 <?php
 
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopHook;
@@ -46,11 +47,11 @@ it('calls beforeModel and afterModel once per model turn', function () {
 });
 
 it('skips the model call when a beforeModel hook halts the run', function () {
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldNotReceive('generateText');
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldNotReceive('generateTextStep');
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $halting = new class extends LoopHook
     {
@@ -69,15 +70,15 @@ it('skips the model call when a beforeModel hook halts the run', function () {
 it('lets beforeModel compact the history that is actually sent to the model', function () {
     $sentMessageCount = null;
 
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$sentMessageCount) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$sentMessageCount) {
         $sentMessageCount = count($args[3]); // the $messages array
 
         return Sdk::turn('ok', [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $compactor = new class extends LoopHook
     {

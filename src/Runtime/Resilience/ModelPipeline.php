@@ -10,7 +10,7 @@ use Twdnhfr\LaravelDeepagents\Runtime\Loop;
 
 /**
  * Composes a {@see ModelMiddleware} stack around the canonical
- * `generateText(maxSteps: 0)` call and runs it — the single place a model call
+ * `generateTextStep` (single-step) call and runs it — the single place a model call
  * leaves this package. Both the {@see Loop} (each turn) and internal callers
  * like {@see SummarizeHistory} (the compaction call) go through here, so
  * retry/failover policy applies uniformly to every model call of a run.
@@ -24,7 +24,9 @@ final class ModelPipeline
      */
     public static function run(array $middleware, ModelCall $call): Step
     {
-        $core = fn (ModelCall $c): Step => $c->provider->textGateway()->generateText(
+        // maxSteps: 0 resolves to a single step; tools are never invoked on the
+        // final step, so this stays a bare one-turn call without tool execution.
+        $core = fn (ModelCall $c): Step => $c->provider->textGenerationLoop()->generate(
             $c->provider,
             $c->model,
             $c->instructions,
@@ -32,7 +34,7 @@ final class ModelPipeline
             $c->tools,
             null,
             new TextGenerationOptions(maxSteps: 0),
-        )->steps->first();
+        )->steps->firstOrFail();
 
         $pipeline = array_reduce(
             array_reverse($middleware),

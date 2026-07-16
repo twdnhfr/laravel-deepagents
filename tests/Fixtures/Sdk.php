@@ -2,14 +2,14 @@
 
 namespace Twdnhfr\LaravelDeepagents\Tests\Fixtures;
 
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\StepResponse;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Step;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Laravel\Ai\Responses\Data\Usage;
-use Laravel\Ai\Responses\TextResponse;
 use Mockery;
 
 /**
@@ -19,15 +19,13 @@ use Mockery;
 class Sdk
 {
     /**
-     * A single-turn gateway response carrying exactly one Step.
+     * A single-turn gateway step response.
      *
      * @param  array<int, ToolCall>  $toolCalls
      */
-    public static function turn(string $text, array $toolCalls, FinishReason $reason): TextResponse
+    public static function turn(string $text, array $toolCalls, FinishReason $reason): StepResponse
     {
-        $step = new Step($text, $toolCalls, [], $reason, new Usage, new Meta);
-
-        return (new TextResponse($text, new Usage, new Meta))->withSteps(collect([$step]));
+        return new StepResponse($text, $toolCalls, $reason, new Usage, new Meta);
     }
 
     public static function toolCall(string $name, array $args = [], string $id = 'tc'): ToolCall
@@ -39,33 +37,33 @@ class Sdk
      * A mocked TextProvider whose gateway returns the given responses in order
      * (the last repeats for any further turns).
      *
-     * @param  array<int, TextResponse>  $responses
+     * @param  array<int, StepResponse>  $responses
      */
     public static function provider(array $responses, string $defaultModel = 'default-model'): TextProvider
     {
-        $gateway = Mockery::mock(TextGateway::class);
-        $gateway->shouldReceive('generateText')->andReturn(...$responses);
+        $gateway = Mockery::mock(StepTextGateway::class);
+        $gateway->shouldReceive('generateTextStep')->andReturn(...$responses);
 
         $provider = Mockery::mock(TextProvider::class);
-        $provider->shouldReceive('textGateway')->andReturn($gateway);
+        $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
         $provider->shouldReceive('defaultTextModel')->andReturn($defaultModel);
 
         return $provider;
     }
 
     /**
-     * A mocked TextProvider whose gateway throws on its first `generateText` call
+     * A mocked TextProvider whose gateway throws on its first `generateTextStep` call
      * and then returns the given responses in order — for exercising retry
      * middleware around the model call.
      *
-     * @param  array<int, TextResponse>  $thenReturn
+     * @param  array<int, StepResponse>  $thenReturn
      */
-    public static function providerThrowingThen(\Throwable $throw, TextResponse ...$thenReturn): TextProvider
+    public static function providerThrowingThen(\Throwable $throw, StepResponse ...$thenReturn): TextProvider
     {
         $calls = 0;
 
-        $gateway = Mockery::mock(TextGateway::class);
-        $gateway->shouldReceive('generateText')->andReturnUsing(function () use (&$calls, $throw, $thenReturn) {
+        $gateway = Mockery::mock(StepTextGateway::class);
+        $gateway->shouldReceive('generateTextStep')->andReturnUsing(function () use (&$calls, $throw, $thenReturn) {
             if ($calls++ === 0) {
                 throw $throw;
             }
@@ -74,7 +72,7 @@ class Sdk
         });
 
         $provider = Mockery::mock(TextProvider::class);
-        $provider->shouldReceive('textGateway')->andReturn($gateway);
+        $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
         $provider->shouldReceive('defaultTextModel')->andReturn('default-model');
 
         return $provider;
@@ -82,15 +80,15 @@ class Sdk
 
     /**
      * A mocked TextProvider whose gateway throws the given exception on every
-     * `generateText` call — for exercising failover and retry middleware.
+     * `generateTextStep` call — for exercising failover and retry middleware.
      */
     public static function providerAlwaysThrowing(\Throwable $e, string $defaultModel = 'default-model'): TextProvider
     {
-        $gateway = Mockery::mock(TextGateway::class);
-        $gateway->shouldReceive('generateText')->andThrow($e);
+        $gateway = Mockery::mock(StepTextGateway::class);
+        $gateway->shouldReceive('generateTextStep')->andThrow($e);
 
         $provider = Mockery::mock(TextProvider::class);
-        $provider->shouldReceive('textGateway')->andReturn($gateway);
+        $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
         $provider->shouldReceive('defaultTextModel')->andReturn($defaultModel);
 
         return $provider;

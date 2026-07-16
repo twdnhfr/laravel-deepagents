@@ -1,7 +1,8 @@
 <?php
 
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
@@ -12,15 +13,15 @@ afterEach(fn () => Mockery::close());
 it('inserts a synthetic tool_result for a dangling assistant tool call', function () {
     $sentMessageCount = null;
 
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$sentMessageCount) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$sentMessageCount) {
         $sentMessageCount = count($args[3]); // messages
 
         return Sdk::turn('done', [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     // History ends with an assistant tool call that has NO matching tool_result.
     $state = new RunState('sys', [
@@ -40,10 +41,10 @@ it('inserts a synthetic tool_result for a dangling assistant tool call', functio
 });
 
 it('does not touch a history whose tool calls already have results', function () {
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturn(Sdk::turn('done', [], FinishReason::Stop));
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturn(Sdk::turn('done', [], FinishReason::Stop));
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $state = new RunState('sys', [
         ['role' => 'user', 'content' => 'do it'],

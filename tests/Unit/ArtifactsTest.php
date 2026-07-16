@@ -1,9 +1,10 @@
 <?php
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Tools\Request;
 use Twdnhfr\LaravelDeepagents\Backends\StateBackend;
@@ -156,14 +157,14 @@ it('clips a large tool result to the backend before the next model turn (end to 
     };
 
     $turn = 0;
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$turn) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$turn) {
         return ++$turn === 1
             ? Sdk::turn('', [Sdk::toolCall('dump')], FinishReason::ToolCalls)
             : Sdk::turn('done', [], FinishReason::Stop);
     });
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $state = DeepAgent::make()->provider($provider)->model('m')
         ->backend($backend)

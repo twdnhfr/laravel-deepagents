@@ -1,7 +1,8 @@
 <?php
 
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Twdnhfr\LaravelDeepagents\DeepAgent;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopException;
@@ -13,15 +14,15 @@ afterEach(fn () => Mockery::close());
 it('continue() carries the full prior conversation into the next turn', function () {
     $sentCounts = [];
 
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$sentCounts) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$sentCounts) {
         $sentCounts[] = count($args[3]); // number of messages sent this turn
 
         return Sdk::turn('reply '.(count($sentCounts)), [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $agent = DeepAgent::make()->provider($provider)->model('m')->basePrompt(null);
 
@@ -41,15 +42,15 @@ it('continue() carries the full prior conversation into the next turn', function
 it('continue() reuses the existing run instructions, not fresh ones', function () {
     $instructionsSeen = [];
 
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$instructionsSeen) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$instructionsSeen) {
         $instructionsSeen[] = $args[2]; // instructions
 
         return Sdk::turn('ok', [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     $agent = DeepAgent::make()->provider($provider)->model('m')->basePrompt(null)->instructions('Be a pirate.');
 

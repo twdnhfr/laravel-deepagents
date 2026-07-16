@@ -177,7 +177,7 @@ it('executes the tool by default when maxSteps is unset (the contrast)', functio
     Http::assertSentCount(2);
 })->with('providers');
 
-it('documents the divergence: maxSteps=1 is NOT uniform — Gemini executes one tool round', function (string $provider, string $model) {
+it('documents that maxSteps=1 is uniform since laravel/ai 0.9 (shared TextGenerationLoop)', function (string $provider, string $model) {
     [$pattern, $toolUse, $final] = spikeFixtures($provider);
 
     Http::preventStrayRequests();
@@ -188,11 +188,11 @@ it('documents the divergence: maxSteps=1 is NOT uniform — Gemini executes one 
 
     $agent->prompt('use the spy tool', provider: $provider, model: $model);
 
-    // Gemini pushes its step AFTER the guard, so count()=0 < 1 is true → it runs
-    // one tool round and makes a second call. Anthropic/OpenAI do not. This is
-    // exactly why Path B must use maxSteps=0, not 1.
-    $geminiDiverges = $provider === 'gemini';
-
-    expect($spy->handled)->toBe($geminiDiverges);
-    Http::assertSentCount($geminiDiverges ? 2 : 1);
+    // Historical note: on laravel/ai 0.8 the maxSteps guard lived in each
+    // provider gateway and diverged — Gemini ran one tool round at maxSteps=1
+    // while Anthropic/OpenAI did not, which is why Path B settled on maxSteps=0.
+    // Since 0.9 every gateway routes through the shared TextGenerationLoop, so
+    // maxSteps=1 is uniform: one model turn, no tool execution.
+    expect($spy->handled)->toBeFalse();
+    Http::assertSentCount(1);
 })->with('providers');

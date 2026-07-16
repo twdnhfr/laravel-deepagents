@@ -1,8 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Http;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Twdnhfr\LaravelDeepagents\DeepAgent;
 use Twdnhfr\LaravelDeepagents\Runtime\RunState;
@@ -142,15 +143,15 @@ it('resolves and runs a provider() failover chain (primary succeeds)', function 
 it('falls back to the provider default model when none is set', function () {
     $captured = null;
 
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use (&$captured) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use (&$captured) {
         $captured = $args[1]; // model is the 2nd positional argument
 
         return Sdk::turn('ok', [], FinishReason::Stop);
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
     $provider->shouldReceive('defaultTextModel')->andReturn('provider-default');
 
     DeepAgent::make()->provider($provider)->run('hi'); // no ->model(...)

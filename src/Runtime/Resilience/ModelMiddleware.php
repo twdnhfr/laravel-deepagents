@@ -22,7 +22,7 @@ interface ModelMiddleware
 {
     /**
      * Run, retry, re-route, or skip the model call. `$next` performs the actual
-     * `generateText(maxSteps: 0)` for the given {@see ModelCall} and returns its
+     * `generateTextStep` (single-step) for the given {@see ModelCall} and returns its
      * {@see Step}; call it to proceed — possibly more than once, or with a
      * different provider via {@see ModelCall::withProvider()}.
      *

@@ -1,8 +1,9 @@
 <?php
 
 use Illuminate\Http\Client\ConnectionException;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Step;
 use Twdnhfr\LaravelDeepagents\Context\SummarizeHistory;
@@ -18,8 +19,8 @@ afterEach(fn () => Mockery::close());
 /** A provider whose summarizer call returns a fixed string (and records its input). */
 function summarizer(string $returns, ?string &$captured = null): TextProvider
 {
-    $gateway = Mockery::mock(TextGateway::class);
-    $gateway->shouldReceive('generateText')->andReturnUsing(function (...$args) use ($returns, &$captured) {
+    $gateway = Mockery::mock(StepTextGateway::class);
+    $gateway->shouldReceive('generateTextStep')->andReturnUsing(function (...$args) use ($returns, &$captured) {
         // $args[3] is the messages array; the transcript is the user message content.
         $captured = $args[3][0]->content ?? null;
 
@@ -27,7 +28,7 @@ function summarizer(string $returns, ?string &$captured = null): TextProvider
     });
 
     $provider = Mockery::mock(TextProvider::class);
-    $provider->shouldReceive('textGateway')->andReturn($gateway);
+    $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
 
     return $provider;
 }
