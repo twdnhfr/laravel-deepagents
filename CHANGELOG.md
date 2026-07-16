@@ -2,6 +2,10 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.7.1 - 2026-07-16
+
+Migrate to laravel/ai 0.9: model calls now go through textGenerationLoop()->generate(); requires laravel/ai ^0.9.0. Replaces the broken v0.7.0 tag (constraint bump without code migration).
+
 ## v0.7.0 - 2026-07-16
 
 Require laravel/ai ^0.9.0 (drops ^0.7.2|^0.8)
