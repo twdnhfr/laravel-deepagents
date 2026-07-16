@@ -4,6 +4,11 @@
 - **Date:** 2026-05-29
 - **Deciders:** twdnhfr
 
+> **Update 2026-07-16:** laravel/ai 0.9 removed the `TextGateway` contract this
+> ADR references; the single-turn seam is now `TextProvider::textGenerationLoop()
+> ->generate()` with the same `maxSteps: 0` semantics (see v0.7.1). The decision
+> and rationale below are unchanged; API names reflect the 0.7/0.8 SDK.
+
 ## Context
 
 This package is a deep-agent *harness* on top of `laravel/ai`. The defining

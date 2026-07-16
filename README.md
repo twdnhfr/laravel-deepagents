@@ -53,7 +53,7 @@ The how-and-why is recorded as Architecture Decision Records in [`docs/adr/`](do
 
 - PHP 8.3+
 - Laravel 13
-- [`laravel/ai`](https://github.com/laravel/ai) `^0.7.2|^0.8` (configured with at least one provider/API key)
+- [`laravel/ai`](https://github.com/laravel/ai) `^0.9` (configured with at least one provider/API key)
 
 ## Installation
 
@@ -246,7 +246,7 @@ DeepAgent (fluent builder)              ← the public API
    │ configures & starts
    ▼
 Runtime\Loop  ── drives one turn ──►  laravel/ai
-   │  maxSteps: 0                       TextProvider::textGateway()->generateText($messages)
+   │  maxSteps: 0                       TextProvider::textGenerationLoop()->generate($messages)
    │  (autonomous | approval pause)      └─ any provider (OpenAI, Anthropic, Gemini, …)
    ▼
 Runtime\RunState  ── json_encode ──►  DB / queue / HTTP body ── json_decode ──►  resume()
