@@ -112,6 +112,17 @@ it('windows long content with a continuation hint', function () {
         ->toContain('showing chars 0–40 of 100');
 });
 
+it('caps limit so a single read cannot pull an unbounded artifact into the prompt', function () {
+    $tool = new ReadArtifact;
+    $tool->withBackend(new StateBackend(['big' => str_repeat('x', 25000)]));
+
+    $out = (string) $tool->handle(new Request(['path' => 'big', 'limit' => 1_000_000]));
+
+    [$content] = explode("\n…[showing chars", $out, 2);
+    expect(mb_strlen($content))->toBe(20000);
+    expect($out)->toContain('offset 20000');
+});
+
 it('writes an artifact to the backend', function () {
     $backend = new StateBackend;
     $tool = new WriteArtifact;

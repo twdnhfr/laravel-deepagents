@@ -19,9 +19,8 @@ use Twdnhfr\LaravelDeepagents\Contracts\Backend;
  * Deliberate limitations to know about:
  * - The `..` guard is conservative: it also rejects legitimate names that
  *   merely contain two dots (e.g. `notes..md`).
- * - Symlinks inside the root are followed, not resolved — a symlink pointing
- *   outside the root will be read/written through. Only hand the backend a
- *   root you trust.
+ * - Symlinks inside the root are resolved: a symlink (directory, file, or even
+ *   dangling) that points outside the root is rejected rather than followed.
  * - Directories are created with the default permissions (umask applies);
  *   tighten them at the filesystem level if the root holds sensitive data.
  */
@@ -105,6 +104,30 @@ class FilesystemBackend implements Backend
             throw new InvalidArgumentException("Path traversal is not allowed: [{$path}].");
         }
 
-        return rtrim($this->root, '/').'/'.$path;
+        $root = rtrim($this->root, '/');
+        $full = $root.'/'.$path;
+
+        $rootReal = realpath($root);
+
+        if ($rootReal === false) {
+            return $full; // root not created yet — nothing inside it to escape through
+        }
+
+        // Walk to the deepest already-existing segment (never above the root) and
+        // resolve it: a symlinked directory or file anywhere in the chain — even a
+        // dangling one — must still land inside the root.
+        $probe = $full;
+
+        while ($probe !== $root && ! file_exists($probe) && ! is_link($probe)) {
+            $probe = dirname($probe);
+        }
+
+        $real = realpath($probe);
+
+        if ($real === false || ($real !== $rootReal && ! str_starts_with($real, $rootReal.DIRECTORY_SEPARATOR))) {
+            throw new InvalidArgumentException("Path escapes the backend root: [{$path}].");
+        }
+
+        return $full;
     }
 }

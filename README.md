@@ -263,6 +263,28 @@ Runtime\RunState  ── json_encode ──►  DB / queue / HTTP body ── js
 - **`Contracts\Backend`** + **`Backends\StateBackend`** — the pluggable file-storage seam for the upcoming filesystem
   tools.
 
+## Security model
+
+The package's trust boundary sits in your application, not inside the library. What that means in practice:
+
+- **A serialized `RunState` is trusted input.** It carries the system prompt, the full history and the pending tool
+  calls that `resume()` will execute — whoever can edit the blob can make the agent run any registered tool with any
+  arguments. Persist it server-side (DB, cache, queue payload). Never round-trip it through a browser or any other
+  client; if it must cross a trust boundary, sign it (e.g. HMAC) and verify before `RunState::fromJson()`.
+- **`resume()` approves by default.** A pending call without a recorded decision is executed — calling `resume()`
+  *is* the approval in the simplest flow. `reject()` anything that must not run, and treat the endpoint or job that
+  calls `resume()` as the security control: authenticate it and re-check there that the pending calls are ones this
+  user may approve.
+- **A backend is a shared store, not a sandbox.** The artifact tools read and write any path within the backend, and
+  sub-agents inherit the parent's backend by design (a shared scratchpad). In a multi-tenant app, give each tenant
+  its own scope — a separate filesystem root, cache prefix or database table — instead of pointing every agent at one
+  shared persistent backend. The default `state` backend is in-memory and per-run, so it isolates by construction.
+  `FilesystemBackend` refuses `..` segments and paths that resolve (through symlinks) outside its root.
+- **Validate security-critical tool arguments inside the tool.** The optional `ValidateToolArgs` middleware only
+  checks parameter names (unknown/missing) against the schema — types, ranges and authorization are the tool's job.
+- **Tool exceptions are shown to the model.** A throwing tool hands its exception message back as the tool result so
+  the model can react — so don't put secrets or internal details into exception messages your tools throw.
+
 ## Status & roadmap
 
 | Area | State |

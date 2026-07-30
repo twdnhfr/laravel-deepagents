@@ -22,6 +22,11 @@ class ReadArtifact implements BackendAware, Tool
 
     protected int $defaultLimit = 4000;
 
+    // read_artifact is exempt from OffloadLargeToolResults, so without a cap a
+    // single read (e.g. limit=10^9) could pull an arbitrarily large artifact
+    // back into the prompt for good. Cap it; the model pages via offset.
+    protected int $maxLimit = 20000;
+
     public function withBackend(Backend $backend): void
     {
         $this->backend = $backend;
@@ -54,6 +59,7 @@ class ReadArtifact implements BackendAware, Tool
         $offset = max(0, (int) ($request['offset'] ?? 0));
         $limit = (int) ($request['limit'] ?? $this->defaultLimit);
         $limit = $limit > 0 ? $limit : $this->defaultLimit;
+        $limit = min($limit, $this->maxLimit);
 
         $slice = mb_substr($content, $offset, $limit);
         $total = mb_strlen($content);
@@ -71,7 +77,7 @@ class ReadArtifact implements BackendAware, Tool
         return [
             'path' => $schema->string()->description('The artifact path.')->required(),
             'offset' => $schema->integer()->description('Start character offset (default 0).'),
-            'limit' => $schema->integer()->description('Maximum characters to return (default 4000).'),
+            'limit' => $schema->integer()->description('Maximum characters to return (default 4000, capped at 20000).'),
         ];
     }
 }
