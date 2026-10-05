@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-deepagents` will be documented in this file.
 
+## v0.8.0 - 2026-10-05
+
+Upgrade to laravel/ai 1.0: requires laravel/ai ^1.0. No public API changes.
+
+- `retryModelCall()` retries dropped connections again — since laravel/ai 0.11 they surface as the failoverable `ProviderConnectionException` and were silently not retried; they now retry on the same provider first and fail over once the attempts are exhausted.
+- Custom `TextProvider` implementations must satisfy the 1.0 `Provider` contract (`name()`, `withHeaders()`).
+- The offline demo works again.
+
 ## v0.7.1 - 2026-07-16
 
 Migrate to laravel/ai 0.9: model calls now go through textGenerationLoop()->generate(); requires laravel/ai ^0.9.0. Replaces the broken v0.7.0 tag (constraint bump without code migration).
