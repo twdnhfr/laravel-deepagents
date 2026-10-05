@@ -18,6 +18,14 @@ afterEach(function () {
     rmdir($this->root);
 });
 
+/**
+ * Windows removes a directory symlink with rmdir(), everywhere else it is unlink().
+ */
+function removeDirectorySymlink(string $link): void
+{
+    PHP_OS_FAMILY === 'Windows' ? rmdir($link) : unlink($link);
+}
+
 it('writes, reads, checks existence and deletes (including nested paths)', function () {
     $backend = new FilesystemBackend($this->root);
 
@@ -62,7 +70,7 @@ it('rejects a directory symlink pointing outside the root', function () {
     expect(file_get_contents($outside.'/secret.txt'))->toBe('secret');
     expect(file_exists($outside.'/x.txt'))->toBeFalse();
 
-    unlink($this->root.'/link');
+    removeDirectorySymlink($this->root.'/link');
     unlink($outside.'/secret.txt');
     rmdir($outside);
 });
@@ -89,7 +97,7 @@ it('rejects a dangling symlink without creating the target', function () {
     expect(file_exists($target))->toBeFalse();
 
     unlink($this->root.'/dangling.txt');
-});
+})->skipOnWindows('PHP cannot create a symlink to a missing target on Windows.');
 
 it('still resolves nested paths when the root itself is a symlink', function () {
     $realRoot = sys_get_temp_dir().'/lda_realroot_'.uniqid();
@@ -105,6 +113,6 @@ it('still resolves nested paths when the root itself is a symlink', function () 
     unlink($realRoot.'/a/b/c.txt');
     rmdir($realRoot.'/a/b');
     rmdir($realRoot.'/a');
-    unlink($linkRoot);
+    removeDirectorySymlink($linkRoot);
     rmdir($realRoot);
 });
