@@ -58,8 +58,13 @@ the 1.x-bound code.
       reflection in `ValidateToolArgs` still holds on framework 13.15 (`?bool`,
       `true` when required). CI's prefer-lowest leg keeps exercising the
       `0.7.2` floor.
-- [ ] Bump to `^1.0` when `laravel/ai` 1.0 is tagged on Packagist; re-run the
-      full suite (esp. the spikes) against it before release.
+- [x] **2026-10-05 — constraint moved to `^1.0`.** Verified against v1.0.0
+      (prefer-lowest) and v1.0.1: full suite incl. the provider spikes, PHPStan
+      and the offline demo are green. Call-site drift: the generation loop now
+      reads `TextProvider::name()` on every step, `StepResponse` takes a
+      `TextUsage`, Gemini moved to the Interactions API (spike fixtures
+      updated), and connection drops arrive as the failoverable
+      `ProviderConnectionException` (since 0.11; `RetryModelCall` retries it).
 
 ## References
 
