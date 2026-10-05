@@ -5,16 +5,21 @@ namespace Twdnhfr\LaravelDeepagents\Runtime\Resilience;
 use Closure;
 use Illuminate\Http\Client\ConnectionException;
 use Laravel\Ai\Exceptions\FailoverableException;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
 use Laravel\Ai\Responses\Data\Step;
 use Throwable;
 
 /**
- * Retry the model call on a transient, non-failoverable error — a dropped
- * connection or timeout. Rate limits and overloads are {@see FailoverableException}s
- * and are deliberately NOT retried here: retrying the same rate-limited provider
- * is pointless, so those are left to {@see FailoverProviders} to route elsewhere.
+ * Retry the model call on a transient error — a dropped connection or timeout.
+ * Rate limits and overloads are {@see FailoverableException}s and are
+ * deliberately NOT retried here: retrying the same rate-limited provider is
+ * pointless, so those are left to {@see FailoverProviders} to route elsewhere.
  *
- * The two predicates are disjoint by design — see [ADR-0005](../../../docs/adr/0005-resilience-at-the-loop-seam.md).
+ * The one failoverable exception that IS retried is laravel/ai's
+ * {@see ProviderConnectionException} — since 0.11 the SDK wraps every dropped
+ * connection in it. Retry runs first on the same provider; once its attempts
+ * are exhausted the exception propagates and failover takes over — see
+ * [ADR-0005](../../../docs/adr/0005-resilience-at-the-loop-seam.md).
  */
 final class RetryModelCall implements ModelMiddleware
 {
@@ -50,13 +55,13 @@ final class RetryModelCall implements ModelMiddleware
 
     private function shouldRetry(Throwable $e): bool
     {
-        if ($e instanceof FailoverableException) {
+        if ($e instanceof FailoverableException && ! $e instanceof ProviderConnectionException) {
             return false;
         }
 
         return $this->retryable !== null
             ? ($this->retryable)($e)
-            : $e instanceof ConnectionException;
+            : $e instanceof ConnectionException || $e instanceof ProviderConnectionException;
     }
 
     private function backoff(int $attempt): void

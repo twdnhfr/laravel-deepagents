@@ -320,9 +320,10 @@ final class DeepAgent
     }
 
     /**
-     * Retry the model call on a transient, non-failoverable error (a dropped
-     * connection or timeout). Rate limits route to provider failover instead
-     * (configure one by passing an array to `provider()`).
+     * Retry the model call on a transient error (a dropped connection or
+     * timeout). Rate limits route to provider failover instead (configure one
+     * by passing an array to `provider()`); a connection error that outlasts
+     * its retries fails over too.
      *
      * @param  (Closure(\Throwable): bool)|null  $retryable
      */

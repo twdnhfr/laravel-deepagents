@@ -25,7 +25,9 @@ Composition note: passing an array to `->provider()` registers `FailoverProvider
 as the *outermost* model middleware, so a `->retryModelCall()` added alongside it
 nests inside — each provider is retried on a transient blip, and only a genuine
 `FailoverableException` (rate limit, overload) routes to the next provider. The
-two predicates are disjoint by design.
+one overlap: laravel/ai (since 0.11) wraps a dropped connection in
+`ProviderConnectionException`, which is failoverable — it is retried on the
+same provider first and fails over once the retries are exhausted.
 
 `Hook` (between calls, operates on `RunState`) is unchanged. Middleware wrap a
 *call* and control its invocation — that is the new thing.
@@ -180,9 +182,9 @@ final class RetryModelCall implements ModelMiddleware
 > **Composition.** Retry wraps a single provider; failover wraps the chain. So
 > the default order is `FailoverProviders( RetryModelCall( actualCall ) )`:
 > retry a transient blip on the current provider, and only fail over on a
-> genuine `FailoverableException`. The two predicates are deliberately disjoint —
-> a rate limit is failoverable (→ switch provider), a timeout is retryable
-> (→ try the same provider again).
+> genuine `FailoverableException`. A rate limit is failoverable (→ switch
+> provider), a timeout is retryable (→ try the same provider again). A
+> `ProviderConnectionException` is both: retried first, then failed over.
 
 ### Argument validation — provider-agnostic self-correction
 

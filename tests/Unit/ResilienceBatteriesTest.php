@@ -3,6 +3,7 @@
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Client\ConnectionException;
 use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
 use Laravel\Ai\Exceptions\RateLimitedException;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Tools\Request;
@@ -80,6 +81,35 @@ it('retries the model call on a transient connection error', function () {
 
     expect($state->isDone())->toBeTrue();
     expect($state->finalText)->toBe('recovered');
+});
+
+it('retries the SDK-wrapped connection error despite it being failoverable', function () {
+    // laravel/ai >= 0.11 wraps a dropped connection in ProviderConnectionException.
+    $provider = Sdk::providerThrowingThen(
+        ProviderConnectionException::forProvider('p'),
+        Sdk::turn('recovered', [], FinishReason::Stop),
+    );
+
+    $state = (new Loop($provider, 'm', modelMiddleware: [new RetryModelCall(times: 2, sleep: fn () => null)]))
+        ->advance(RunState::start('sys', 'go'));
+
+    expect($state->isDone())->toBeTrue();
+    expect($state->finalText)->toBe('recovered');
+});
+
+it('fails over once retries of a connection error are exhausted', function () {
+    $down = Sdk::providerAlwaysThrowing(ProviderConnectionException::forProvider('primary'));
+    $working = Sdk::provider([Sdk::turn('answer from fallback', [], FinishReason::Stop)]);
+
+    $failover = new FailoverProviders([
+        ['provider' => $down, 'model' => 'm1'],
+        ['provider' => $working, 'model' => 'm2'],
+    ]);
+
+    $state = (new Loop($down, 'm1', modelMiddleware: [$failover, new RetryModelCall(times: 2, sleep: fn () => null)]))
+        ->advance(RunState::start('sys', 'go'));
+
+    expect($state->finalText)->toBe('answer from fallback');
 });
 
 it('does not retry a failoverable error (leaving it to failover)', function () {
