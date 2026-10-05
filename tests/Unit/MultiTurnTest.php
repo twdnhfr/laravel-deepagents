@@ -23,6 +23,7 @@ it('continue() carries the full prior conversation into the next turn', function
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $agent = DeepAgent::make()->provider($provider)->model('m')->basePrompt(null);
 
@@ -51,6 +52,7 @@ it('continue() reuses the existing run instructions, not fresh ones', function (
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $agent = DeepAgent::make()->provider($provider)->model('m')->basePrompt(null)->instructions('Be a pirate.');
 

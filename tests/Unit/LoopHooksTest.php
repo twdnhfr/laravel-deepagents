@@ -52,6 +52,7 @@ it('skips the model call when a beforeModel hook halts the run', function () {
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $halting = new class extends LoopHook
     {
@@ -79,6 +80,7 @@ it('lets beforeModel compact the history that is actually sent to the model', fu
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $compactor = new class extends LoopHook
     {

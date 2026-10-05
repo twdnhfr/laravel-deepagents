@@ -53,19 +53,16 @@ function hitlFixtures(string $provider): array
         ],
         'gemini' => [
             'https://generativelanguage.googleapis.com/*',
+            // Interactions API wire format (laravel/ai >= 1.0).
             [
-                'candidates' => [[
-                    'content' => ['parts' => [['functionCall' => ['name' => 'spy_tool', 'args' => ['query' => 'hello']]]]],
-                    'finishReason' => 'STOP',
-                ]],
-                'usageMetadata' => ['promptTokenCount' => 5, 'candidatesTokenCount' => 3],
+                'id' => 'int_1', 'status' => 'requires_action',
+                'steps' => [['type' => 'function_call', 'id' => 'fc_1', 'name' => 'spy_tool', 'arguments' => ['query' => 'hello']]],
+                'usage' => ['total_input_tokens' => 5, 'total_output_tokens' => 3],
             ],
             [
-                'candidates' => [[
-                    'content' => ['parts' => [['text' => 'all done']]],
-                    'finishReason' => 'STOP',
-                ]],
-                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+                'id' => 'int_2', 'status' => 'completed',
+                'steps' => [['type' => 'model_output', 'content' => [['type' => 'text', 'text' => 'all done']]]],
+                'usage' => ['total_input_tokens' => 1, 'total_output_tokens' => 1],
             ],
         ],
     };

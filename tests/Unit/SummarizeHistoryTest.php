@@ -29,6 +29,7 @@ function summarizer(string $returns, ?string &$captured = null): TextProvider
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     return $provider;
 }

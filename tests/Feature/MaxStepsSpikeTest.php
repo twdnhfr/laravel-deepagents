@@ -105,21 +105,26 @@ function spikeFixtures(string $provider): array
         ],
         'gemini' => [
             'https://generativelanguage.googleapis.com/*',
+            // Interactions API wire format (laravel/ai >= 1.0).
             [
-                'candidates' => [[
-                    'content' => ['parts' => [[
-                        'functionCall' => ['name' => 'spy_tool', 'args' => ['query' => 'hello']],
-                    ]]],
-                    'finishReason' => 'STOP',
+                'id' => 'int_1',
+                'status' => 'requires_action',
+                'steps' => [[
+                    'type' => 'function_call',
+                    'id' => 'fc_1',
+                    'name' => 'spy_tool',
+                    'arguments' => ['query' => 'hello'],
                 ]],
-                'usageMetadata' => ['promptTokenCount' => 5, 'candidatesTokenCount' => 3],
+                'usage' => ['total_input_tokens' => 5, 'total_output_tokens' => 3],
             ],
             [
-                'candidates' => [[
-                    'content' => ['parts' => [['text' => 'done']]],
-                    'finishReason' => 'STOP',
+                'id' => 'int_2',
+                'status' => 'completed',
+                'steps' => [[
+                    'type' => 'model_output',
+                    'content' => [['type' => 'text', 'text' => 'done']],
                 ]],
-                'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+                'usage' => ['total_input_tokens' => 1, 'total_output_tokens' => 1],
             ],
         ],
     };
@@ -151,7 +156,11 @@ it('maxSteps=0 is the UNIFORM single-turn seam: tool calls returned, NOT execute
     expect($step->toolCalls)->toHaveCount(1);
     expect($step->toolCalls[0]->name)->toBe('spy_tool');
     expect($step->toolCalls[0]->arguments)->toBe(['query' => 'hello']);
-    expect($step->toolResults)->toBeEmpty('no tool results — nothing ran');
+    // Since laravel/ai 0.11 the final step carries a failed placeholder result
+    // for each unexecuted call instead of none — still proof nothing ran.
+    expect($step->toolResults)->toHaveCount(1);
+    expect($step->toolResults[0]->failed)->toBeTrue('placeholder, not a real result');
+    expect($step->toolResults[0]->result)->not->toBe('EXECUTED');
 
     // Exactly one model turn: the gateway did NOT recurse into a second call.
     Http::assertSentCount(1);

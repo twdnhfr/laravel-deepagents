@@ -176,6 +176,7 @@ it('clips a large tool result to the backend before the next model turn (end to 
     });
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $state = DeepAgent::make()->provider($provider)->model('m')
         ->backend($backend)

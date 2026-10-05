@@ -22,6 +22,7 @@ it('inserts a synthetic tool_result for a dangling assistant tool call', functio
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     // History ends with an assistant tool call that has NO matching tool_result.
     $state = new RunState('sys', [
@@ -45,6 +46,7 @@ it('does not touch a history whose tool calls already have results', function ()
     $gateway->shouldReceive('generateTextStep')->andReturn(Sdk::turn('done', [], FinishReason::Stop));
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $state = new RunState('sys', [
         ['role' => 'user', 'content' => 'do it'],

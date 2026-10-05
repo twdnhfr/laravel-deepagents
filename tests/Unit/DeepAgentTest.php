@@ -152,6 +152,7 @@ it('falls back to the provider default model when none is set', function () {
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
     $provider->shouldReceive('defaultTextModel')->andReturn('provider-default');
 
     DeepAgent::make()->provider($provider)->run('hi'); // no ->model(...)

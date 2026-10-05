@@ -8,8 +8,8 @@ use Laravel\Ai\Gateway\StepResponse;
 use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
+use Laravel\Ai\Responses\Data\TextUsage;
 use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Tools\Request;
 use Twdnhfr\LaravelDeepagents\Runtime\Loop;
 use Twdnhfr\LaravelDeepagents\Runtime\LoopException;
@@ -21,7 +21,7 @@ afterEach(fn () => Mockery::close());
 /** A single-turn gateway step response. */
 function turnResponse(string $text, array $toolCalls, FinishReason $reason): StepResponse
 {
-    return new StepResponse($text, $toolCalls, $reason, new Usage, new Meta);
+    return new StepResponse($text, $toolCalls, $reason, new TextUsage, new Meta);
 }
 
 function aToolCall(string $name, array $args = [], string $id = 'tc'): ToolCall
@@ -43,6 +43,7 @@ function loopReturning(array $responses, array $tools = [], bool $requireApprova
 
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     return new Loop($provider, 'test-model', $tools, $requireApproval ? fn (): bool => true : null, $maxTurns);
 }

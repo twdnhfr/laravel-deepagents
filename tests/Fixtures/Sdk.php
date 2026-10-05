@@ -8,8 +8,8 @@ use Laravel\Ai\Gateway\StepResponse;
 use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
+use Laravel\Ai\Responses\Data\TextUsage;
 use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Responses\Data\Usage;
 use Mockery;
 
 /**
@@ -25,7 +25,7 @@ class Sdk
      */
     public static function turn(string $text, array $toolCalls, FinishReason $reason): StepResponse
     {
-        return new StepResponse($text, $toolCalls, $reason, new Usage, new Meta);
+        return new StepResponse($text, $toolCalls, $reason, new TextUsage, new Meta);
     }
 
     public static function toolCall(string $name, array $args = [], string $id = 'tc'): ToolCall
@@ -46,6 +46,7 @@ class Sdk
 
         $provider = Mockery::mock(TextProvider::class);
         $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+        $provider->shouldReceive('name')->andReturn('fake');
         $provider->shouldReceive('defaultTextModel')->andReturn($defaultModel);
 
         return $provider;
@@ -73,6 +74,7 @@ class Sdk
 
         $provider = Mockery::mock(TextProvider::class);
         $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+        $provider->shouldReceive('name')->andReturn('fake');
         $provider->shouldReceive('defaultTextModel')->andReturn('default-model');
 
         return $provider;
@@ -89,6 +91,7 @@ class Sdk
 
         $provider = Mockery::mock(TextProvider::class);
         $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+        $provider->shouldReceive('name')->andReturn('fake');
         $provider->shouldReceive('defaultTextModel')->andReturn($defaultModel);
 
         return $provider;

@@ -55,6 +55,7 @@ it('catches a sub-agent failure and returns it as text', function () {
     $gateway->shouldReceive('generateTextStep')->andThrow(new RuntimeException('boom'));
     $provider = Mockery::mock(TextProvider::class);
     $provider->shouldReceive('textGenerationLoop')->andReturn(new TextGenerationLoop($gateway));
+    $provider->shouldReceive('name')->andReturn('fake');
 
     $broken = DeepAgent::make()->provider($provider)->model('m');
     $task = new Task(['x' => ['description' => 'x', 'agent' => $broken]]);
