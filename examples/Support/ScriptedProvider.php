@@ -3,62 +3,59 @@
 namespace Twdnhfr\LaravelDeepagents\Examples;
 
 use BadMethodCallException;
-use Closure;
 use Generator;
-use Laravel\Ai\Contracts\Gateway\TextGateway;
+use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\TextProvider;
+use Laravel\Ai\Gateway\StepContext;
+use Laravel\Ai\Gateway\StepResponse;
+use Laravel\Ai\Gateway\TextGenerationLoop;
 use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
-use Laravel\Ai\Responses\Data\Step;
+use Laravel\Ai\Responses\Data\TextUsage;
 use Laravel\Ai\Responses\Data\ToolCall;
-use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\StreamableAgentResponse;
-use Laravel\Ai\Responses\TextResponse;
 
 /**
  * An offline, scripted text gateway for the demo: returns programmed turns in
  * order (the last one repeats if the script runs out). No network, no keys.
  */
-class ScriptedGateway implements TextGateway
+class ScriptedGateway implements StepTextGateway
 {
     private int $cursor = 0;
 
-    /** @param array<int, TextResponse> $turns */
+    /** @param array<int, StepResponse> $turns */
     public function __construct(private array $turns) {}
 
-    public function generateText(
+    public function generateTextStep(
         TextProvider $provider,
         string $model,
         ?string $instructions,
-        array $messages = [],
-        array $tools = [],
-        ?array $schema = null,
-        ?TextGenerationOptions $options = null,
-        ?int $timeout = null,
-    ): TextResponse {
+        array $messages,
+        array $tools,
+        ?array $schema,
+        ?TextGenerationOptions $options,
+        ?int $timeout,
+        StepContext $stepContext,
+    ): StepResponse {
         return $this->turns[$this->cursor++] ?? $this->turns[array_key_last($this->turns)];
     }
 
-    public function streamText(
+    public function generateStreamStep(
         string $invocationId,
         TextProvider $provider,
         string $model,
         ?string $instructions,
-        array $messages = [],
-        array $tools = [],
-        ?array $schema = null,
-        ?TextGenerationOptions $options = null,
-        ?int $timeout = null,
+        array $messages,
+        array $tools,
+        ?array $schema,
+        ?TextGenerationOptions $options,
+        ?int $timeout,
+        StepContext $stepContext,
     ): Generator {
         throw new BadMethodCallException('Streaming is not part of this demo.');
-    }
-
-    public function onToolInvocation(Closure $invoking, Closure $invoked): self
-    {
-        return $this;
     }
 }
 
@@ -68,9 +65,9 @@ class ScriptedGateway implements TextGateway
  */
 class ScriptedProvider implements TextProvider
 {
-    private ScriptedGateway $gateway;
+    private StepTextGateway $gateway;
 
-    /** @param array<int, TextResponse> $turns */
+    /** @param array<int, StepResponse> $turns */
     public function __construct(array $turns, private string $model = 'demo-model')
     {
         $this->gateway = new ScriptedGateway($turns);
@@ -82,12 +79,11 @@ class ScriptedProvider implements TextProvider
      *
      * @param  array<int, ToolCall>  $toolCalls
      */
-    public static function turn(string $text, array $toolCalls = []): TextResponse
+    public static function turn(string $text, array $toolCalls = []): StepResponse
     {
         $reason = $toolCalls === [] ? FinishReason::Stop : FinishReason::ToolCalls;
-        $step = new Step($text, $toolCalls, [], $reason, new Usage, new Meta);
 
-        return (new TextResponse($text, new Usage, new Meta))->withSteps(collect([$step]));
+        return new StepResponse($text, $toolCalls, $reason, new TextUsage, new Meta);
     }
 
     /**
@@ -98,15 +94,40 @@ class ScriptedProvider implements TextProvider
         return new ToolCall($id, $name, $arguments, $id);
     }
 
-    public function textGateway(): TextGateway
+    public function textGenerationLoop(): TextGenerationLoop
     {
-        return $this->gateway;
+        return new TextGenerationLoop($this->gateway);
     }
 
-    public function useTextGateway(TextGateway $gateway): self
+    public function useTextGateway(StepTextGateway $gateway): self
     {
         $this->gateway = $gateway;
 
+        return $this;
+    }
+
+    public function name(): string
+    {
+        return 'scripted';
+    }
+
+    public function driver(): string
+    {
+        return 'scripted';
+    }
+
+    public function providerCredentials(): array
+    {
+        return [];
+    }
+
+    public function additionalConfiguration(): array
+    {
+        return [];
+    }
+
+    public function withHeaders(array $headers): static
+    {
         return $this;
     }
 
